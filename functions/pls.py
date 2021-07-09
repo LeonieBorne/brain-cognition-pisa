@@ -89,7 +89,8 @@ class PLSPipeline(BaseEstimator, TransformerMixin, MultiOutputMixin):
 # PERMUTATION TEST #
 ####################
 
-
+# https://genomicsclass.github.io/book/pages/permutation_tests.html
+# https://pubmed.ncbi.nlm.nih.gov/21044043/
 def permutation_test(Xsulci, Ycogn,
                      pipeline=None, score_func=np.cov, n_perm=1000):
     '''
@@ -104,36 +105,53 @@ def permutation_test(Xsulci, Ycogn,
                                Yimputer=SimpleImputer(strategy="mean"))
 
     # ref scores
-    pipeline.fit(Xsulci, Ycogn)
+    x_scores, y_scores = pipeline.fit_transform(Xsulci, Ycogn)
     n_comp = pipeline.PLS.n_components
     ref_score = np.diag(score_func(
-        pipeline.PLS.x_scores_, pipeline.PLS.y_scores_,
-        rowvar=False)[:n_comp, n_comp:])
+        x_scores, y_scores, rowvar=False)[:n_comp, n_comp:])
 
     # permutation scores
     scores = []
     for i in tqdm(range(n_perm)):
         X = Xsulci
-        Y = shuffle(Ycogn)
-        pipeline.fit(X, Y)
+        Y = shuffle(Ycogn, random_state=i)
+        x_scores, y_scores = pipeline.fit_transform(X, Y)
         scores.append(np.diag(score_func(
-            pipeline.PLS.x_scores_, pipeline.PLS.y_scores_,
-            rowvar=False)[:n_comp, n_comp:]))
+            x_scores, y_scores, rowvar=False)[:n_comp, n_comp:]))
     scores = np.array(scores)
 
-    # p < 0.05 <-> p < 0.05/n_comp after bonferroni correction
-    p = 0.01
+    #p < 0.05 <-> p < 0.05/n_comp after bonferroni correction
+    p = 0.05 / n_comp
     scores = np.array(scores)
     up_list = []
     print()
+    pvals, zcov = [], []
     for mode in range(n_comp):
         sc = ref_score[mode]
-        up = np.quantile(scores[:, mode], 1-p) # 1-p/n_comp)
+        zsc = (sc-np.mean(scores[:, 0]))/np.std(scores[:, 0])
+        up = np.quantile(scores[:, 0], 1-p) # 1-p/n_comp)
         up_list.append(up)
-        if sc > up:
-            print(f'Mode {mode} is robust: {sc:.2f} > {up:.2f}')
+        pvals.append((sum(scores[:, 0] >= sc))/(n_perm))
+        zcov.append(zsc)
+        # if sc > up:
+        #     print(f'Mode {mode} is robust: {sc:.2f} > {up:.2f}')
+        # else:
+        #     print(f'Mode {mode} is not robust: {sc:.2f} < {up:.2f}')
+        # print(f'score={sc:.4f}; z-score={zsc:.4f}; p-value={(sum(scores[:, 0] >= sc))/(n_perm):.4f}')
+    rstr = '(1rst mode, p-value='
+    if pvals[0]==0:
+        rstr += '0'
+    else:
+        rstr += f'{pvals[0]:.2e}'
+    if pvals[0] > 0.05:
+        rstr += ')'
+    else:
+        rstr += f', z-covariance={zcov[0]:.2f}; 2nd mode, p-value='
+        if pvals[1]==1:
+            rstr += '1)'
         else:
-            print(f'Mode {mode} is not robust: {sc:.2f} < {up:.2f}')
+            rstr += f'{pvals[1]:.2e})'
+    print(rstr)
 
     # figure - all modes
     plt.figure(figsize=(10, 6))
@@ -157,16 +175,27 @@ def bootstrapping(Xsulci, Ycogn, pipeline=None, n_boot=1000):
         pipeline = PLSPipeline(PLSCanonical(n_components=2),
                                Ximputer=SimpleImputer(strategy="mean"),
                                Yimputer=SimpleImputer(strategy="mean"))
-
+    Xt, Yt = pipeline.fit_transform(Xsulci, Ycogn)
+    
     y_weights, x_weights = [], []
     y_loadings, x_loadings = [], []
     for i in tqdm(range(n_boot)):
         Xr, Yr = resample(Xsulci, Ycogn)
-        pipeline.fit(Xr, Yr)
-        y_weights.append(pipeline.PLS.y_weights_)
-        x_weights.append(pipeline.PLS.x_weights_)
-        y_loadings.append(pipeline.PLS.y_loadings_)
-        x_loadings.append(pipeline.PLS.x_loadings_)
+        Xrt, Yrt = pipeline.fit_transform(Xr, Yr)
+        yw = pipeline.PLS.y_weights_
+        xw = pipeline.PLS.x_weights_
+        yl = pipeline.PLS.y_loadings_
+        xl = pipeline.PLS.x_loadings_
+        # for m in range(Xt.shape[1]):
+        #     if np.corrcoef(Xrt[:,m], Xt[:,m])[0,1]<0 and np.corrcoef(Yrt[:,m], Yt[:,m])[0,1]<0:
+        #         yw[:, m] = -yw[:, m]
+        #         xw[:, m] = -xw[:, m]
+        #         yl[:, m] = -yl[:, m]
+        #         xl[:, m] = -xl[:, m]
+        y_weights.append(yw)
+        x_weights.append(xw)
+        y_loadings.append(yl)
+        x_loadings.append(xl)
 
     for comp in range(pipeline.PLS.n_components):
         print(f'===== COMPONENT {comp} =====')
@@ -183,6 +212,41 @@ def bootstrapping(Xsulci, Ycogn, pipeline=None, n_boot=1000):
           np.std(x_weights, axis=0)[:, comp], Xsulci.columns)):
             if abs(mean_weight) > abs(std_weight):
                 print(f'{mean_weight:.3f} +/- {std_weight:.3f} {var}')
+
+    rstr = ''
+    dict_sulci = {'S.s.P.': 'sub-parietal sulcus',
+                  'INSULA': 'insula',
+                  'F.Coll.': 'collateral fissure',
+                  'S.Cu.': 'cuneal sulcus',
+                  'OCCIPITAL': 'occipital lobe',
+                  'S.T.i.post.': 'posterior inferior temporal sulcus',
+                  'F.I.P.': 'intraparietal sulcus',
+                  'F.C.L.p.': 'posterior lateral fissure',
+                  'F.I.P.Po.C.inf.': 'superior postcentral intraparietal superior sulcus',
+                  'F.C.M.ant.': 'calloso marginal anterior fissure',
+                  'F.Cal.ant.-Sc.Cal.': 'calcarine fissure',
+                  'F.P.O.': 'parieto-occipital fissure',
+                  'S.T.s.': 'superior temporal sulcus'}
+    i = 0
+    comp = 0
+    for mean_weight, std_weight, var in sorted(zip(
+        np.mean(x_weights, axis=0)[:, comp],
+        np.std(x_weights, axis=0)[:, comp], Xsulci.columns), reverse=True):
+          if i != 4:
+              if var in dict_sulci.keys():
+                  rstr += f'the {dict_sulci[var]}, '
+              else:
+                  rstr += f'{var}, '
+              i += 1
+          else:
+              if var in dict_sulci.keys():
+                  rstr = rstr[:-2] + f' and the {dict_sulci[var]}.'
+              else:
+                  rstr = rstr[:-2] + f' and {var}.'
+              break
+
+    print()
+    print(rstr)
     
     return x_weights, y_weights, x_loadings, y_loadings
 
