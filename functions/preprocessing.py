@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-import os.path as osp
 from scipy import stats
 import warnings
 from uon.confounds import ConfoundRegressor
@@ -8,9 +7,9 @@ from collections import Counter
 from neuroCombat import neuroCombat
 
 
-def preprocessing(df_brain, df_cogn, df_info, drop_rate=0.5, 
-                  group_col='Group', age_col='Age', sex_col='Sex',
-                  regress_out_confounds=False, confounds=[], 
+def preprocessing(df_brain, df_cogn, df_info,  
+                  group_col, age_col, sex_col,
+                  drop_rate=0.5, regress_out_confounds=False, 
                   train_hc_only=True, mean=True, verbose=True):
     '''
     Data preprocessing for brain and cognitive data.
@@ -18,15 +17,61 @@ def preprocessing(df_brain, df_cogn, df_info, drop_rate=0.5,
     Parameters
     ----------
     df_brain : pandas.DataFrame
-        dataframe containing the brain measurements (rows : participants; 
-        columns : sulci_side)
+        Brain measurements
         
     df_cogn : pandas.DataFrame
-        dataframe containing the cognitive scores (rows : same participants as
-        )
+        Cognitive scores
+    
+    df_info : pandas.DataFrame
+        Additional informations which should include age 
+        (age_col), sex (sex_col) and clinical status (group_col)
+    
+    group_col : string
+        Name of the column in df_info that contains the clinical status 
+        (value should be equal to 1 if the participant is healthy)
+    
+    age_col : string
+        Name of the column in df_info that contains the participants age
+        
+    sex_col : string
+        Name ofthe column in df_info that contains the participants sex
+        (1 if Male, 0 if Female)
+ 
+    drop_rate : float, default=0.5
+        Maximum percentage of missing values without removing the 
+        subject/feature.
+        
+    regress_out_confounds : bool, default=False
+        If True, the confounds (age and sex) are regressed out from the brain
+        and cognitive datasets
+    
+    train_hc_only : bool, default=True
+        If True, the training datasets (Xbrain and Ycogn) only contain healthy
+        participants
+        
+    mean : bool, default=True
+        If True, the left/right brain measurements are averaged (i.e. the
+        measurements named "xxx_left" and "xxx_right" in df_brain)
+        
+    verbose : bool, default=True
+        If True, the different steps are displayed
     
     Returns
     -------
+    df_brain : pandas.DataFrame
+        Preprocessed brain measurements
+
+    df_cogn : pandas.DataFrame
+        Preprocessed cognitives scores
+    
+    df_info : pandas.DataFrame
+        Additional informations
+    
+    Xbrain : ndarray
+        Training preprocessed brain data
+    
+    Ycogn : ndarray
+        Training preprocessed cognitive data
     
     '''
     # averaging left/right measurements
@@ -108,11 +153,11 @@ def preprocessing(df_brain, df_cogn, df_info, drop_rate=0.5,
         if verbose:
             print(f'{len(df_info)} subjects ({sum(df_info.Group==1)}+{sum(df_info.Group!=1)})')
             print('Match age...')
-        df_info = match_age(df_info)
+        df_info = match_age(df_info, age_col, group_col)
         if verbose:
             print(f'{len(df_info)} subjects ({sum(df_info.Group==1)}+{sum(df_info.Group!=1)})')
             print('Match sex...')
-        df_info = match_sex(df_info)
+        df_info = match_sex(df_info, sex_col, age_col, group_col)
         if verbose:
             print(f'{len(df_info)} subjects ({sum(df_info.Group==1)}+{sum(df_info.Group!=1)})')
         # homogenise number of samples
@@ -122,16 +167,16 @@ def preprocessing(df_brain, df_cogn, df_info, drop_rate=0.5,
     # remove site effect from brain data
     if 'site' in df_info.columns:
         if verbose:
-            print(f'Remove sites with < 3 subjects...')
+            print('Remove sites with < 3 subjects...')
         for g, m in Counter(df_info.site).items():
             if m < 3:
                 df_brain = df_brain[df_info.site != g]
                 df_cogn = df_cogn[df_info.site != g]
                 df_info = df_info[df_info.site != g]
-        covars = df_info[list(confounds)+['site', group_col]]
+        covars = df_info[['site', age_col, sex_col, group_col]]
         data = df_brain.fillna(df_brain.mean()).transpose()
-        categorical_cols = ['Sex', 'Group']
-        continuous_cols = ['Age']
+        categorical_cols = [sex_col, group_col]
+        continuous_cols = [age_col]
         batch_col = 'site'
         data = neuroCombat(dat=data,
             covars=covars,
@@ -145,14 +190,14 @@ def preprocessing(df_brain, df_cogn, df_info, drop_rate=0.5,
     # regress out confounds
     if regress_out_confounds:
         if verbose:
-            print(f'Regress out confounds...')
-        df_cov = df_info[confounds]
-        pp_sulci = df_brain.fillna(df_brain[df_info.Group == 1].mean())
-        pp_cogn = df_cogn.fillna(df_cogn[df_info.Group == 1].mean())
+            print('Regress out confounds...')
+        df_cov = df_info[[age_col, sex_col]]
+        pp_sulci = df_brain.fillna(df_brain[df_info[group_col] == 1].mean())
+        pp_cogn = df_cogn.fillna(df_cogn[df_info[group_col] == 1].mean())
         cr = ConfoundRegressor()
-        cr.fit(pp_sulci[df_info.Group == 1], df_cov[df_info.Group == 1])
+        cr.fit(pp_sulci[df_info[group_col] == 1], df_cov[df_info[group_col] == 1])
         pp_sulci = cr.transform(pp_sulci, df_cov)
-        cr.fit(pp_cogn[df_info.Group == 1], df_cov[df_info.Group == 1])
+        cr.fit(pp_cogn[df_info[group_col] == 1], df_cov[df_info[group_col] == 1])
         pp_cogn = cr.transform(pp_cogn, df_cov)
         pp_sulci[df_brain.isna()] = np.nan
         pp_cogn[df_cogn.isna()] = np.nan
@@ -163,8 +208,8 @@ def preprocessing(df_brain, df_cogn, df_info, drop_rate=0.5,
     if train_hc_only:
         if verbose:
             print('Train on healthy participants only...')
-        Xbrain = df_brain[df_info.Group == 1] 
-        Ycogn = df_cogn[df_info.Group == 1]
+        Xbrain = df_brain[df_info[group_col] == 1] 
+        Ycogn = df_cogn[df_info[group_col] == 1]
     else:
         Xbrain = df_brain 
         Ycogn = df_cogn
@@ -174,8 +219,14 @@ def preprocessing(df_brain, df_cogn, df_info, drop_rate=0.5,
 def match_age(df_info, age_col='Age', group_col='Group'):
     pval_age = test_age(df_info, age_col, group_col)
     while pval_age < 0.05:
-        rm_hc = df_info[age_col][df_info[group_col] == 1].idxmin() # works only if group 1 < 2
-        rm_ad = df_info[age_col][df_info[group_col] != 1].idxmax()
+        df_hc = df_info[df_info[group_col] == 1]
+        df_ad = df_info[df_info[group_col] != 1]
+        if df_hc[age_col].mean() < df_ad[age_col].mean():
+            rm_hc = df_hc[age_col].idxmin()
+            rm_ad = df_ad[age_col].idxmax()
+        else:
+            rm_hc = df_hc[age_col].idxmax()
+            rm_ad = df_ad[age_col].idxmin()
         for rm_subj in [rm_hc, rm_ad]:
             df_info.drop([rm_subj], inplace=True)
         pval_age = test_age(df_info, age_col, group_col)
@@ -186,37 +237,37 @@ def test_age(df_info, age_col, group_col):
                                    df_info[age_col][df_info[group_col] != 1])
     return pval_age
 
-def match_sex(df_info):
-    pval_sex = test_sex(df_info)
+def match_sex(df_info, sex_col, age_col, group_col):
+    pval_sex = test_sex(df_info, sex_col, group_col)
     while pval_sex < 0.05:
-        n_hc = len(df_info[df_info.Group == 1])
-        n_ad = len(df_info[df_info.Group != 1])
+        n_hc = len(df_info[df_info[group_col] == 1])
+        n_ad = len(df_info[df_info[group_col] != 1])
         # find main group
         if n_hc > n_ad:
-            df = df_info[df_info.Group == 1]
-            dfo = df_info[df_info.Group != 1]
+            df = df_info[df_info[group_col] == 1]
+            dfo = df_info[df_info[group_col] != 1]
         else:
-            df = df_info[df_info.Group != 1]
-            dfo = df_info[df_info.Group == 1]
+            df = df_info[df_info[group_col] != 1]
+            dfo = df_info[df_info[group_col] == 1]
         # find sex to remove
-        if sum(df.Sex)/len(df) > sum(dfo.Sex)/len(dfo): 
-            dfs = df[df.Sex == 1]
+        if sum(df[sex_col])/len(df) > sum(dfo[sex_col])/len(dfo): 
+            dfs = df[df[sex_col] == 1]
         else:
-            dfs = df[df.Sex == 0]
+            dfs = df[df[sex_col] == 0]
         # find age to remove
-        if df.Age.mean() > dfo.Age.mean():
-            rm_subj = dfs.Age.idxmax()
+        if df[age_col].mean() > dfo[age_col].mean():
+            rm_subj = dfs[age_col].idxmax()
         else:
-            rm_subj = dfs.Age.idxmin()
+            rm_subj = dfs[age_col].idxmin()
         df_info.drop([rm_subj], inplace=True)
-        pval_sex = test_sex(df_info)
+        pval_sex = test_sex(df_info, sex_col, group_col)
     return df_info
 
-def test_sex(df_info):
-    n_hc = len(df_info[df_info.Group == 1])
-    n_ad = len(df_info[df_info.Group != 1])
-    nm_hc = df_info['Sex'][df_info.Group == 1].sum()
-    nm_ad = df_info['Sex'][df_info.Group != 1].sum()
+def test_sex(df_info, sex_col, group_col):
+    n_hc = len(df_info[df_info[group_col] == 1])
+    n_ad = len(df_info[df_info[group_col] != 1])
+    nm_hc = df_info[sex_col][df_info[group_col] == 1].sum()
+    nm_ad = df_info[sex_col][df_info[group_col] != 1].sum()
     oddr, pval_sex = stats.fisher_exact([[nm_hc, n_hc-nm_hc],
                                          [nm_ad, n_ad-nm_ad]])
     return pval_sex

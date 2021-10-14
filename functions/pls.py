@@ -15,11 +15,6 @@ from sklearn.metrics import balanced_accuracy_score
 from sklearn.model_selection import StratifiedKFold
 
 
-############
-# PIPELINE #
-############
-
-
 class PLSPipeline(BaseEstimator, TransformerMixin, MultiOutputMixin):
 
     def __init__(self, PLS, Ximputer=None, Yimputer=None):
@@ -28,23 +23,13 @@ class PLSPipeline(BaseEstimator, TransformerMixin, MultiOutputMixin):
         self.Yimputer = Yimputer
         self.Xscaler = preprocessing.StandardScaler()
         self.Yscaler = preprocessing.StandardScaler()
-        self.XConfoundRegressor = None
-        self.YConfoundRegressor = None
 
-    def fit(self, X, Y, XC=None, YC=None):
+    def fit(self, X, Y):
         # Imputers
         if self.Ximputer is not None:
             X = self.Ximputer.fit_transform(X)
         if self.Yimputer is not None:
             Y = self.Yimputer.fit_transform(Y)
-
-        # Confounds regressor
-        if XC is not None:
-            self.XConfoundRegressor = ConfoundRegressor()
-            X = self.XConfoundRegressor.fit_transform(X, XC)
-        if YC is not None:
-            self.YConfoundRegressor = ConfoundRegressor()
-            Y = self.YConfoundRegressor.fit_transform(Y, YC)
 
         # Scaling
         X = self.Xscaler.fit_transform(X)
@@ -55,18 +40,12 @@ class PLSPipeline(BaseEstimator, TransformerMixin, MultiOutputMixin):
 
         return self
 
-    def transform(self, X, Y, XC=None, YC=None):
+    def transform(self, X, Y):
         # Imputer
         if self.Ximputer is not None:
             X = self.Ximputer.transform(X)
         if self.Yimputer is not None:
             Y = self.Yimputer.transform(Y)
-
-        # Confounds regressor
-        if self.XConfoundRegressor is not None:
-            X = self.XConfoundRegressor.transform(X, XC)
-        if self.YConfoundRegressor is not None:
-            Y = self.YConfoundRegressor.transform(Y, YC)
 
         # Scaling
         X = self.Xscaler.transform(X)
@@ -74,15 +53,13 @@ class PLSPipeline(BaseEstimator, TransformerMixin, MultiOutputMixin):
 
         return self.PLS.transform(X, Y)
 
-    def fit_transform(self, X, Y, XC=None, YC=None):
-        self.fit(X, Y, XC, YC)
-        return self.transform(X, Y, XC, YC)
+    def fit_transform(self, X, Y):
+        self.fit(X, Y)
+        return self.transform(X, Y)
 
-    def predict(self, X, XC=None):
+    def predict(self, X):
         if self.Ximputer is not None:
             X = self.Ximputer.transform(X)
-        if self.XConfoundRegressor is not None:
-            X = self.XConfoundRegressor.transform(X, XC)
         return self.PLS.predict(X)
 
 ####################
