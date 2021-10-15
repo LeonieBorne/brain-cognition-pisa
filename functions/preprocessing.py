@@ -115,7 +115,7 @@ def preprocessing(df_brain, df_cogn, df_info,
         print(f'{len(sulci_list)-df_brain.shape[1]} brain features dropped: ' +
               f'{[s for s in sulci_list if not s in df_brain.columns]} \n' +
               f'{len(cogn_list)-df_cogn.shape[1]} cognitives features dropped: '+
-              f'{[s for s in cogn_list if not s in df_cogn.columns]} \n')
+              f'{[s for s in cogn_list if not s in df_cogn.columns]}')
 
     # drop subjects
     if verbose:

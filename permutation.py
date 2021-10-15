@@ -11,25 +11,24 @@ import os
 import numpy as np
 from sklearn.utils import shuffle
 
-# resolve WARNINGS
-# resolve default values FALSE (e.g. mean)
-# test output save
-
 # command line arguments
 parser = argparse.ArgumentParser(
     description='Permutation tests for checking modes robustness.')
 parser.add_argument("brain", help="Path to csv file with brain data.")
 parser.add_argument("cognition", help="Path to csv file with cognition data.")
-parser.add_argument("info", help="Path to csv file with additional information.")
+parser.add_argument("info", help="Path to csv file with additional information, containing age ('Age' or age_col), sex ('Sex' or sex_col; 1 if Male, 0 if Female) and clinical status ('Group' or group_col; 1 if healthy).")
 parser.add_argument("-a", "--age_col", help="Column name in info csv with participants age", default="Age")
 parser.add_argument("-s", "--sex_col", help="Column name in info csv with participants sex (1 if Male, 0 if Female)", default="Sex")
 parser.add_argument("-g", "--group_col", help="Column name in info csv with participants clinical status (1 if healthy)", default="Group")
-parser.add_argument("-r", "--regress_out_confounds", help="Regress out confounds.", action="store_false")
+# preprocessing options
+parser.add_argument("-r", "--regress_out_confounds", help="Regress out confounds.", action="store_true")
 parser.add_argument("-m", "--mean", help="Average brain measurement (columns 'xxx_left' and 'xxx_right').", action="store_true")
 parser.add_argument("-d", "--drop_rate", help="Maximum percentage of missing values without removing the subject/feature.", type=float, default=0.5)
 parser.add_argument("-t", "--train_hc_only", help="Train only on healthy participants", action="store_true")
-parser.add_argument("--cca", help="Use CCA instead of PLS model", action="store_false")
+# model options
+parser.add_argument("--cca", help="Use CCA instead of PLS model", action="store_true")
 parser.add_argument("-p", "--nperm", help="Number of permutation tests", type=int, default=1000)
+# output arguments
 parser.add_argument("-f", "--figure_file", help="Output figure", default="")
 parser.add_argument("-o", "--output_file", help="Output csv file", default="")
 
@@ -66,22 +65,25 @@ if args.sex_col not in df_info.columns:
 # preprocessing
 df_brain, df_cogn, df_info, Xbrain, Ycogn = functions.preprocessing.preprocessing(
     df_brain, df_cogn, df_info, 
-    args.group_col, args.age_col, args.sex_col,
-    args.drop_rate, args.regress_out_confounds,
-    args.train_hc_only, args.mean, verbose=True)
+    group_col=args.group_col, age_col=args.age_col, sex_col=args.sex_col,
+    drop_rate=args.drop_rate, regress_out_confounds=args.regress_out_confounds,
+    train_hc_only=args.train_hc_only, mean=args.mean, verbose=True)
     
 # permutation tests
 if args.cca:
-    pipeline = functions.pls.PLSPipeline(CCA(n_components=5),
+    print('Using CCA...')
+    pipeline = functions.pls.PLSPipeline(CCA(n_components=5, max_iter=1000),
                            Ximputer=SimpleImputer(strategy="mean"),
                            Yimputer=SimpleImputer(strategy="mean"))
     score_func = np.corrcoef
 else:
-    pipeline = functions.pls.PLSPipeline(PLSCanonical(n_components=5),
+    print('Using Canonical PLS...')
+    pipeline = functions.pls.PLSPipeline(PLSCanonical(n_components=5, max_iter=1000),
                            Ximputer=SimpleImputer(strategy="mean"),
                            Yimputer=SimpleImputer(strategy="mean"))
     score_func = np.cov
 
+print(f'Running {args.nperm} permutation tests...')
 x_scores, y_scores = pipeline.fit_transform(Xbrain, Ycogn)
 n_comp = pipeline.PLS.n_components
 ref_score = np.diag(score_func(
@@ -136,6 +138,7 @@ if len(args.output_file) != 0:
     df['score'] = ref_score
     df['zscore'] = zcov
     df.to_csv(args.output_file)
+    print(f'Results saved in {args.output_file}.')
 
 # figure
 if len(args.figure_file) != 0:
@@ -153,5 +156,6 @@ if len(args.figure_file) != 0:
     plt.xticks(range(1, n_comp+1))
     plt.violinplot(scores)
     plt.savefig(args.figure_file)
+    print(f'Figure saved as {args.figure_file}.')
 
 exit(0)
