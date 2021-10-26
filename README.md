@@ -50,8 +50,15 @@ python projections.py <brain_csv> <cognition_csv> <info_csv> -m -t --plot_age_ef
 
 ### Is the specific composition of these modes implicitly optimized to covary with age?
 
-To test whether any linear weighting of poor cognition and wider sulci would perform comparably well
+To test whether any linear weighting of cognition and brain features would perform comparably well to covary with age, permutation on the features are used with the ```features_permutation.py``` script:
+```
+python features_permutation.py <brain_csv> <cognition_csv> <info_csv> -m -t -f <figure_file>
+```
 
 ### Are the features identified by performing PLS on the healthy participants optimized to identify out-of-sample clinical participants (MCI/AD)?
 
+The previous command also allows you to test if the linear weighting is optimized to identify out-of-sample participants.
+
 ### Which projection performs a better differentiation healthy from clinical participants?
+
+
