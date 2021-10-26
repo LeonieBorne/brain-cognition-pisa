@@ -42,7 +42,14 @@ python permutation.py <brain_csv> <cognition_csv> <info_csv> -m -t -f <figure_fo
 
 ### Plot age and group effects
 
+Use the ```projections.py``` script to plot the age and group effects (sex, clinical status, amyloid status, APOE) as follows:
+
+```
+python projections.py <brain_csv> <cognition_csv> <info_csv> -m -t --plot_age_effect
+```
+
 ### Is the specific composition of these modes implicitly optimized to covary with age?
+
 To test whether any linear weighting of poor cognition and wider sulci would perform comparably well
 
 ### Are the features identified by performing PLS on the healthy participants optimized to identify out-of-sample clinical participants (MCI/AD)?
