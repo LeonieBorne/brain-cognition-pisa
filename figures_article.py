@@ -26,17 +26,17 @@ train_hc_only = True
 measure='opening'
 # measure='GM_thickness'
 
-# database = 'aibl'
-# regress_out_confounds = False
-# train_hc_only = True
-# measure='opening'
-# # measure='GM_thickness'
-
-# database = 'adni'
-# regress_out_confounds = False
-# train_hc_only = True
-# # measure='opening'
+database = 'aibl'
+regress_out_confounds = False
+train_hc_only = True
+measure='opening'
 # measure='GM_thickness'
+
+database = 'adni'
+regress_out_confounds = False
+train_hc_only = True
+# measure='opening'
+measure='GM_thickness'
 
 # database = 'pisa'
 # regress_out_confounds = True

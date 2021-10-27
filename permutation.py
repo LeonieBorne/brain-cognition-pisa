@@ -11,6 +11,11 @@ import os
 import numpy as np
 from sklearn.utils import shuffle
 
+# TODO
+# fill requirements.txt
+# test on PISA after regression out
+
+
 # command line arguments
 parser = argparse.ArgumentParser(
     description='Permutation tests for checking modes robustness.')
@@ -104,6 +109,8 @@ def print_pval(p):
         pstr = '<0.001'
     elif p == 1:
         pstr = '>0.99'
+    elif p < 0.001:
+        pstr = f'={p:.1e}'
     elif p < 0.01:
         pstr = f'={p:.4f}'
     elif p < 0.1:
@@ -125,9 +132,7 @@ for mode in range(n_comp):
     pvals.append(sum(scores[:, 0] >= sc)/args.nperm) 
     zcov.append(zsc)
 rstr = f'RESULT: 1st mode, p{print_pval(pvals[0])}'
-if pvals[0] > 0.05:
-    rstr += ')'
-else:
+if pvals[0] <= 0.05:
     rstr += f', z={zcov[0]:.2f}; 2nd mode, p{print_pval(pvals[1])}'
 print(rstr)
 

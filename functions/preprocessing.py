@@ -123,19 +123,30 @@ def preprocessing(df_brain, df_cogn, df_info,
     nsubj = df_brain.shape[0]
     df_brain = df_brain[df_cogn.isna().sum(axis=1) < drop_rate*df_cogn.shape[1]]
     df_brain = df_brain[df_brain.isna().sum(axis=1) < drop_rate*df_brain.shape[1]]
-    df_cogn = df_cogn[df_cogn.index.isin(df_brain.index)]
-    df_info = df_info[df_info.index.isin(df_brain.index)]
+    df_cogn = df_cogn.loc[df_brain.index]
+    df_info = df_info.loc[df_brain.index]
     if verbose:
         print(f'{nsubj-df_brain.shape[0]} dropped subjects')
 
     # downsampling
+    if 'site' in df_info.columns:
+        if verbose:
+            print('Remove sites with < 3 subjects...')
+        for g, m in Counter(df_info.site).items():
+            if m < 3:
+                df_brain = df_brain[df_info.site != g]
+                df_cogn = df_cogn[df_info.site != g]
+                df_info = df_info[df_info.site != g]
+        if verbose:
+            print(f'{len(df_info)} subjects ({sum(df_info.Group==1)}+{sum(df_info.Group!=1)})')
+            
     if group_col in df_info.columns and age_col in df_info.columns:
         if verbose:
             print(f'Remove subjects with unknown {group_col} and {age_col}...')
-        df_brain = df_brain[~df_info[group_col].isna()]
-        df_brain = df_brain[~df_info[age_col].isna()]
-        df_cogn = df_cogn[df_cogn.index.isin(df_brain.index)]
-        df_info = df_info[df_info.index.isin(df_brain.index)]
+        for col in [age_col, group_col]:
+            df_brain = df_brain[~df_info[col].isna()]
+            df_cogn = df_cogn.loc[df_brain.index]
+            df_info = df_info.loc[df_brain.index]
         if verbose:
             print(f'{len(df_info)} subjects ({sum(df_info.Group==1)}+{sum(df_info.Group!=1)})')
             print('Remove outliers...')
@@ -167,12 +178,7 @@ def preprocessing(df_brain, df_cogn, df_info,
     # remove site effect from brain data
     if 'site' in df_info.columns:
         if verbose:
-            print('Remove sites with < 3 subjects...')
-        for g, m in Counter(df_info.site).items():
-            if m < 3:
-                df_brain = df_brain[df_info.site != g]
-                df_cogn = df_cogn[df_info.site != g]
-                df_info = df_info[df_info.site != g]
+            print('Apply neuroCombat...')
         covars = df_info[['site', age_col, sex_col, group_col]]
         data = df_brain.fillna(df_brain.mean()).transpose()
         categorical_cols = [sex_col, group_col]
@@ -214,7 +220,46 @@ def preprocessing(df_brain, df_cogn, df_info,
         Xbrain = df_brain 
         Ycogn = df_cogn
     
+    if verbose:
+        df_hc = df_info.loc[df_info.Group == 1]
+        df_cc = df_info.loc[df_info.Group != 1]
+        print()
+        print(f'N | {len(df_hc)} HC | {len(df_cc)} CC')
+        s = 'Age'
+        for dc in [df_hc, df_cc]:
+            s += f' | {dc.Age.mean():.0f} [{dc.Age.min():.0f}-{dc.Age.max():.0f}]'
+        print(s)
+        st, p = stats.ttest_ind(df_hc['Age'], df_cc['Age'])
+        print(f'T-test on age means | p{print_pval(p)}, stat={st:.1e}')
+        s = 'Males N'
+        for dc in [df_hc, df_cc]:
+            s += f' | {sum(dc.Sex):.0f}'
+        print(s)
+        n_hc = len(df_hc)
+        n_ad = len(df_cc)
+        nm_hc = df_hc['Sex'].sum()
+        nm_ad = df_cc['Sex'].sum()
+        oddr, p = stats.fisher_exact([[nm_hc, n_hc-nm_hc],
+                                      [nm_ad, n_ad-nm_ad]])
+        print(f'Fisher exact test (sex) | p{print_pval(p)}, odds-ratio={oddr:.2f}')
+        print()
+        
     return df_brain, df_cogn, df_info, Xbrain, Ycogn
+
+def print_pval(p):
+    if p == 0:
+        pstr = '<0.001'
+    elif p == 1:
+        pstr = '>0.99'
+    elif p < 0.001:
+        pstr = f'={p:.1e}'
+    elif p < 0.01:
+        pstr = f'={p:.4f}'
+    elif p < 0.1:
+        pstr = f'={p:.3f}'
+    else:
+        pstr = f'={p:.2f}'
+    return pstr
 
 def match_age(df_info, age_col='Age', group_col='Group'):
     pval_age = test_age(df_info, age_col, group_col)
