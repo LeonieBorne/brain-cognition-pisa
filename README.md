@@ -48,6 +48,14 @@ Use the ```projections.py``` script to plot the age and group effects (sex, clin
 python projections.py <brain_csv> <cognition_csv> <info_csv> -m -t --plot_age_effect
 ```
 
+### Sulci loadings comparison
+
+Use the ```sulci_loadings_comparison.py``` script to create the snapshots comparing the sulci loadings from 2 different datasets (e.g. AIBL and ADNI), after bootstrapping:
+
+```
+python sulci_loadings_comparison.py <brain1_csv> <cognition1_csv> <info1_csv> <brain2_csv> <cognition2_csv> <info2_csv> -m --train_hc_only1 --train_hc_only2
+```
+
 ### Is the specific composition of these modes implicitly optimized to covary with age?
 
 To test whether any linear weighting of cognition and brain features would perform comparably well to covary with age, permutation on the features are used with the ```features_permutation.py``` script:
@@ -61,4 +69,8 @@ The previous command also allows you to test if the linear weighting is optimize
 
 ### Which projection performs a better differentiation healthy from clinical participants?
 
-
+The script ```classification.py``` tests how well a linear SVM trained on the projections allow to classify healthy from clinical participants.
+The ```--brain2``` argument allows to compare the use of two different brain latent variables.
+```
+python classification.py <brain_csv> <cognition_csv> <info_csv> -m -t --brain2 <brain2_csv>
+```
