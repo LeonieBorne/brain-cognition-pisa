@@ -1,4 +1,4 @@
-# Brain-Cognition modes of covariation (WORK IN PROGRESS)
+# Brain-Cognition modes of covariation
 
 The instructions below allow to reproduce the work done in XXX on the [PISA](https://doi.org/10.1016/j.nicl.2020.102527), [AIBL](https://aibl.csiro.au/) and [ADNI](http://adni.loni.usc.edu/) datasets.
 
