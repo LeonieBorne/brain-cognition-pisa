@@ -1,21 +1,21 @@
 # Brain-Cognition modes of covariation
 
-The instructions below allow to reproduce the work done in XXX on the [PISA](https://doi.org/10.1016/j.nicl.2020.102527), [AIBL](https://aibl.csiro.au/) and [ADNI](http://adni.loni.usc.edu/) datasets.
+The instructions below allow to reproduce the work done in "A snapshot of brain and cognition in healthy mid-life and older adults" (2021) on the [PISA](https://doi.org/10.1016/j.nicl.2020.102527), [AIBL](https://aibl.csiro.au/) and [ADNI](http://adni.loni.usc.edu/) datasets.
 
 ## Step 1. Sulcal measurements
 Follow the instructions [here](https://github.com/LeonieBorne/morpho-deepsulci-docker) to apply the [Morphologist pipeline](https://doi.org/10.1016/j.media.2020.101651) from the [Brainvisa toolbox](https://brainvisa.info) on your own dataset (T1w MRI scans).
 
 ## Step 2. Dataset organisation
 Arrange your data so that you get the following three files: 
-- ```<brain_csv>```
-- ```<cognition_csv>```
-- ```<info_csv>```
+- ```<brain_csv>``` containing the brain measurements (e.g. sulcal width, cortical thickness, etc.).
+- ```<cognition_csv>``` containing the cognitive scores.
+- ```<info_csv>``` containing additional informations. It must contain "Age", "Sex" (1 if Male, 0 if Female) and "Group" (1 if healthy). It may contain "Amyloid" ("Positive" or "Negative"), "APOEe4" (4 if ε4-carrier else 0), "PRS_noAPOE" (polygenic risk score without APOE), "Twin" ("MZ" if monozygote) and "Twin_ID" (twin subject ID).
 
-Each row correspond to a different participant, each column a different feature.
+Each row correspond to a different participant, each column to a different feature.
 
 ## Step 3. Partial Least Square (PLS)
 
-The scripts described below were developed and tested in Python 3.9.5. To run the scripts, the dependencies described in ```requirements.txt``` are required. The following command allow to install them: ``` pip install -r requirements.txt ```.
+The scripts described below were developed and tested in Python 3.9.5. To run the scripts, the dependencies described in ```requirements.txt``` are required. The following command allow to install them: ``` pip install -r requirements.txt ```. [Docker](https://www.docker.com/) needs to be installed to create the sulci snapshots.
 
 For more information on the scripts below and to see the options available, use the command ```python <script>.py -h```.
 
