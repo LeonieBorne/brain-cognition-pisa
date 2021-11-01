@@ -15,29 +15,24 @@ Each row correspond to a different participant, each column to a different featu
 
 ## Step 3. Partial Least Square (PLS)
 
-The scripts described below were developed and tested in Python 3.9.5. To run the scripts, the dependencies described in ```requirements.txt``` are required. The following command allow to install them: ``` pip install -r requirements.txt ```. [Docker](https://www.docker.com/) needs to be installed to create the sulci snapshots.
+Two approaches are possible to apply the PLS model:
+- you can use the [Jupyter Notebook](notebook.ipynb)
+- or the Python scripts described in more detail below.
 
-For more information on the scripts below and to see the options available, use the command ```python <script>.py -h```.
+Both approaches give the same results. The code is developed and tested in Python 3.9.5. The following command allow to install the required dependencies: ``` pip install -r requirements.txt ```. [Docker](https://www.docker.com/) needs to be installed to create the sulci snapshots. For more information on the scripts described below and to see the options available, use the command ```python <script>.py -h```.
 
 ### Are the modes robust?
 
-In order to see if the brain-cognition modes are robust, permutation tests are performed with the ```permutation.py``` script. 
-
-The following command tests the PLS trained on the healthy cohort only:
+In order to see if the brain-cognition modes are robust, permutation tests are performed with the ```permutation.py``` script. The following command tests the PLS trained on the healthy cohort only:
 ```
 python permutation.py <brain_csv> <cognition_csv> <info_csv> -m -t
-```
-
-The following command tests the PLS after regressing out age and sex:
-```
-python permutation.py <brain_csv> <cognition_csv> <info_csv> -m -r
 ```
 
 ### What are the contribution of each individual score (a specific cognitive test or brain measurement) to the shared variance?
 
 This is checked using bootrapping tests on the [PLS loadings](https://scikit-learn.org/stable/modules/cross_decomposition.html#plscanonical), with the ```bootstrapping.py``` script:
 ```
-python permutation.py <brain_csv> <cognition_csv> <info_csv> -m -t -f <figure_folder> --sulci_snapshot
+python bootstrapping.py <brain_csv> <cognition_csv> <info_csv> -m -t -f <figure_folder> --sulci_snapshot
 ```
 
 ### Plot age and group effects
@@ -46,14 +41,6 @@ Use the ```projections.py``` script to plot the age and group effects (sex, clin
 
 ```
 python projections.py <brain_csv> <cognition_csv> <info_csv> -m -t --plot_age_effect
-```
-
-### Sulci loadings comparison
-
-Use the ```sulci_loadings_comparison.py``` script to create the snapshots comparing the sulci loadings from 2 different datasets (e.g. AIBL and ADNI), after bootstrapping:
-
-```
-python sulci_loadings_comparison.py <brain1_csv> <cognition1_csv> <info1_csv> <brain2_csv> <cognition2_csv> <info2_csv> -m --train_hc_only1 --train_hc_only2
 ```
 
 ### Is the specific composition of these modes implicitly optimized to covary with age?
@@ -66,6 +53,14 @@ python features_permutation.py <brain_csv> <cognition_csv> <info_csv> -m -t -f <
 ### Are the features identified by performing PLS on the healthy participants optimized to identify out-of-sample clinical participants (MCI/AD)?
 
 The previous command also allows you to test if the linear weighting is optimized to identify out-of-sample participants.
+
+### Sulci loadings comparison
+
+Use the ```sulci_loadings_comparison.py``` script to create the snapshots comparing the sulci loadings from 2 different datasets (e.g. AIBL and ADNI), after bootstrapping:
+
+```
+python sulci_loadings_comparison.py <brain1_csv> <cognition1_csv> <info1_csv> <brain2_csv> <cognition2_csv> <info2_csv> -m --train_hc_only1 --train_hc_only2
+```
 
 ### Which projection performs a better differentiation healthy from clinical participants?
 
