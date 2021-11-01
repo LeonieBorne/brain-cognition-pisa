@@ -46,30 +46,17 @@ parser.add_argument("-f", "--figure_folder", help="Output figure folder", defaul
 args = parser.parse_args()
 
 # load data
-def check_csv(csv_file):
-    if os.path.exists(csv_file):
-        df = pd.read_csv(csv_file, index_col=0)
-        return df
-    else:
-        print(f'CSV file not found: {csv_file}')
-        exit(1)
+df_brain1, df_cogn1, df_info1 = functions.preprocessing.check_csv_files(
+    args.brain1, args.cognition1, args.info1, 
+    args.age_col, args.sex_col, args.group_col)
 
-df_brain1 = check_csv(args.brain1)
-df_brain2 = check_csv(args.brain2)
-df_cogn1 = check_csv(args.cognition1)
-df_cogn2 = check_csv(args.cognition2)
-df_info1 = check_csv(args.info1)
-df_info2 = check_csv(args.info2)
-    
-# check arguments
-def check_col(df_info):
-    for col in [args.group_col, args.age_col, args.sex_col]:
-        if col not in df_info.columns:
-            print(f'Column {col} not in {args.info}.')
-            exit(1)
+df_brain2, df_cogn2, df_info2 = functions.preprocessing.check_csv_files(
+    args.brain2, args.cognition2, args.info2, 
+    args.age_col, args.sex_col, args.group_col)
 
-check_col(df_info1)
-check_col(df_info2)
+if args.drop_rate < 0 or args.drop_rate > 1:
+    print(f'Drop rate should be between 0 and 1. {args.drop_rate} is not a valid value.')
+    exit(1)
 
 # pipeline
 if args.cca:

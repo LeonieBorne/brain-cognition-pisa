@@ -17,7 +17,7 @@ from pingouin import ancova
 
 # command line arguments
 parser = argparse.ArgumentParser(
-    description='Permutation tests for checking modes robustness.')
+    description='Save projections values and/or plot age effect.')
 parser.add_argument("brain", help="Path to csv file with brain data.")
 parser.add_argument("cognition", help="Path to csv file with cognition data.")
 parser.add_argument("info", help="Path to csv file with additional information, containing age ('Age' or age_col), sex ('Sex' or sex_col; 1 if Male, 0 if Female) and clinical status ('Group' or group_col; 1 if healthy).")
@@ -44,31 +44,12 @@ parser.add_argument("--plot_age_effect", help="Plot age effect", action="store_t
 args = parser.parse_args()
 
 # load data
-if os.path.exists(args.brain):
-    df_brain = pd.read_csv(args.brain, index_col=0)
-else:
-    print(f'Brain csv file not found: {args.brain}')
-    exit(1)
-if os.path.exists(args.cognition):
-    df_cogn = pd.read_csv(args.cognition, index_col=0)
-else:
-    print(f'Cognition csv file not found: {args.cognition}')
-    exit(1)
-if os.path.exists(args.info):
-    df_info = pd.read_csv(args.info, index_col=0)
-else:
-    print(f'Csv file containing the additional information not found: {args.info}.')
-    exit(1)
+df_brain, df_cogn, df_info = functions.preprocessing.check_csv_files(
+    args.brain, args.cognition, args.info, 
+    args.age_col, args.sex_col, args.group_col)
 
-# check arguments
-if args.group_col not in df_info.columns:
-    print(f'Column {args.group_col} not in {args.info}.')
-    exit(1)
-if args.age_col not in df_info.columns:
-    print(f'Column {args.age_col} not in {args.info}.')
-    exit(1)
-if args.sex_col not in df_info.columns:
-    print(f'Column {args.sex_col} not in {args.info}.')
+if args.drop_rate < 0 or args.drop_rate > 1:
+    print(f'Drop rate should be between 0 and 1. {args.drop_rate} is not a valid value.')
     exit(1)
     
 # preprocessing
@@ -115,7 +96,7 @@ def plot_age_effect(X, Y, df_info):
     dict_label={0:'Female', 1:'Male'}
     covar = [args.age_col]
     axes = plot_comparison(X[df_info[args.group_col] == 1], Y[df_info[args.group_col] == 1], 
-                           df_info[df_info[args.group_col] == 1], 'Sex', covar,
+                           df_info[df_info[args.group_col] == 1], sex_col, covar,
                            axes, 0, dict_label, col, mode=0)
     axes[0, 0].legend(loc='upper left')
     axes[0, 2].set_title('Sulcal Width')

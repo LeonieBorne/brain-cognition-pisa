@@ -2,9 +2,10 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 import warnings
-from uon.confounds import ConfoundRegressor
 from collections import Counter
 from neuroCombat import neuroCombat
+import os
+from sklearn.base import BaseEstimator, TransformerMixin
 
 
 def preprocessing(df_brain, df_cogn, df_info,  
@@ -316,3 +317,83 @@ def test_sex(df_info, sex_col, group_col):
     oddr, pval_sex = stats.fisher_exact([[nm_hc, n_hc-nm_hc],
                                          [nm_ad, n_ad-nm_ad]])
     return pval_sex
+
+def check_csv_files(brain, cognition, info, age_col, sex_col, group_col):
+    if os.path.exists(brain):
+        df_brain = pd.read_csv(brain, index_col=0)
+    else:
+        print(f'Brain csv file not found: {brain}')
+        exit(1)
+    if os.path.exists(cognition):
+        df_cogn = pd.read_csv(cognition, index_col=0)
+    else:
+        print(f'Cognition csv file not found: {cognition}')
+        exit(1)
+    if os.path.exists(info):
+        df_info = pd.read_csv(info, index_col=0)
+    else:
+        print(f'Csv file containing the additional information not found: {info}.')
+        exit(1)
+    
+    # check arguments
+    if group_col not in df_info.columns:
+        print(f'Column {group_col} not in {info}.')
+        exit(1)
+        if 1 not in df_info[group_col]:
+            print(f'{group_col} should contain at least one healthy participant.')
+            exit(1)
+    if age_col not in df_info.columns:
+        print(f'Column {age_col} not in {info}.')
+        exit(1)
+        if df_info.Age.dtype != float and df_info.Age.dtype != int:
+            print(f'{age_col} should contain float or int.')
+            exit(1)
+    if sex_col not in df_info.columns:
+        print(f'Column {sex_col} not in {info}.')
+        exit(1)
+        v = df_info.loc[df_info[sex_col].isna(), age_col]
+        uv = [v for v in v if v not in [0,1]]
+        if len(uv) != 0:
+            print(f'{sex_col} contains unrecognised values: {uv}.')
+            exit(1)
+    return df_brain, df_cogn, df_info
+
+
+class ConfoundRegressor(BaseEstimator, TransformerMixin):
+    """ Fits a confound onto each feature in X and returns their residuals."""
+
+
+    def __init__(self, stack_intercept=True):
+        """ Regresses out a variable (confound) from each feature in X.
+        Parameters
+        ----------
+        stack_intercept : bool
+            Whether to stack an intercept to the confound (default is True)
+        Attributes
+        ----------
+        weights_ : numpy array
+            Array with weights for the confound(s).
+        """
+        self.stack_intercept = stack_intercept
+        self.weights_ = None
+
+    def fit(self, X, C):
+        if self.stack_intercept:
+            icept = np.ones(C.shape[0])
+            C = np.c_[icept, C]
+
+        # Vectorized implementation estimating weights for all features
+        self.weights_ = np.linalg.lstsq(C, X, rcond=None)[0]
+        return self
+
+    def transform(self, X, C):
+        if self.stack_intercept:
+            icept = np.ones(C.shape[0])
+            C = np.c_[icept, C]
+
+        return X - C.dot(self.weights_)
+    
+    def fit_transform(self, X, C):
+        self.fit(X, C)
+        return self.transform(X, C)
+    

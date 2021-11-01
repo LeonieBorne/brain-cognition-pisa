@@ -1,26 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import argparse
 import pandas as pd
+import numpy as np
 import functions.preprocessing
 import functions.pls
 from sklearn.cross_decomposition import PLSCanonical, CCA
 from sklearn.impute import SimpleImputer
-import os
-import numpy as np
 from sklearn.utils import shuffle
-
-# TODO
-# fill requirements.txt
-# test on PISA after regression out
 
 
 # command line arguments
 parser = argparse.ArgumentParser(
     description='Permutation tests for checking modes robustness.')
-parser.add_argument("brain", help="Path to csv file with brain data.")
-parser.add_argument("cognition", help="Path to csv file with cognition data.")
+parser.add_argument("brain", help="Path to csv file with brain data")
+parser.add_argument("cognition", help="Path to csv file with cognition data")
 parser.add_argument("info", help="Path to csv file with additional information, containing age ('Age' or age_col), sex ('Sex' or sex_col; 1 if Male, 0 if Female) and clinical status ('Group' or group_col; 1 if healthy).")
 parser.add_argument("-a", "--age_col", help="Column name in info csv with participants age", default="Age")
 parser.add_argument("-s", "--sex_col", help="Column name in info csv with participants sex (1 if Male, 0 if Female)", default="Sex")
@@ -31,7 +27,7 @@ parser.add_argument("-m", "--mean", help="Average brain measurement (columns 'xx
 parser.add_argument("-d", "--drop_rate", help="Maximum percentage of missing values without removing the subject/feature.", type=float, default=0.5)
 parser.add_argument("-t", "--train_hc_only", help="Train only on healthy participants", action="store_true")
 # model options
-parser.add_argument("--cca", help="Use CCA instead of PLS model", action="store_true")
+parser.add_argument("--cca", help="Use CCA instead of Canonical PLS model", action="store_true")
 parser.add_argument("-p", "--nperm", help="Number of permutation tests", type=int, default=1000)
 # output arguments
 parser.add_argument("-f", "--figure_file", help="Output figure", default="")
@@ -40,31 +36,12 @@ parser.add_argument("-o", "--output_file", help="Output csv file", default="")
 args = parser.parse_args()
 
 # load data
-if os.path.exists(args.brain):
-    df_brain = pd.read_csv(args.brain, index_col=0)
-else:
-    print(f'Brain csv file not found: {args.brain}')
-    exit(1)
-if os.path.exists(args.cognition):
-    df_cogn = pd.read_csv(args.cognition, index_col=0)
-else:
-    print(f'Cognition csv file not found: {args.cognition}')
-    exit(1)
-if os.path.exists(args.info):
-    df_info = pd.read_csv(args.info, index_col=0)
-else:
-    print(f'Csv file containing the additional information not found: {args.info}.')
-    exit(1)
+df_brain, df_cogn, df_info = functions.preprocessing.check_csv_files(
+    args.brain, args.cognition, args.info, 
+    args.age_col, args.sex_col, args.group_col)
 
-# check arguments
-if args.group_col not in df_info.columns:
-    print(f'Column {args.group_col} not in {args.info}.')
-    exit(1)
-if args.age_col not in df_info.columns:
-    print(f'Column {args.age_col} not in {args.info}.')
-    exit(1)
-if args.sex_col not in df_info.columns:
-    print(f'Column {args.sex_col} not in {args.info}.')
+if args.drop_rate < 0 or args.drop_rate > 1:
+    print(f'Drop rate should be between 0 and 1. {args.drop_rate} is not a valid value.')
     exit(1)
     
 # preprocessing
