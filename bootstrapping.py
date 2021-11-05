@@ -109,24 +109,21 @@ if len(args.output_file) != 0:
 if len(args.figure_folder) != 0:
     import matplotlib.pyplot as plt
     for mode in range(args.modes):
-        for loadings, columns, fname in zip([x_loadings, y_loadings],
+        for loadings, columns, fname in zip([x_loadings[:,:,mode], y_loadings[:,:,mode]],
                                             [Xbrain.columns, Ycogn.columns],
                                             ['brain', 'cogn']):
-            means = [m if up*down > 0 else 0 for m, up, down in zip(
-                np.mean(loadings, axis=0)[:, mode],
-                np.percentile(loadings, 97.5, axis=0)[:, mode],
-                np.percentile(loadings, 2.5, axis=0)[:, mode])]
-            full_labels = [l for m, l in sorted(zip(means, columns)) if m != 0]
-            scores = [m for m in sorted(means) if m != 0]
+            means = np.mean(loadings, axis=0)
+            full_labels = [l for m, l in sorted(zip(means, columns))]
+            scores = [m for m in sorted(means)]
             colors, labels = [], []
             for l in full_labels:
-                if l.startswith('M.'):
+                if l.startswith('M.') or l.startswith('M_'):
                     colors.append('lightcoral')
                     labels.append(l[2:])
-                elif l.startswith('L.'):
+                elif l.startswith('L.') or l.startswith('L_'):
                     colors.append('lightgreen')
                     labels.append(l[2:])
-                elif l.startswith('E.'):
+                elif l.startswith('E.') or l.startswith('E_'):
                     colors.append('lightblue')
                     labels.append(l[2:])
                 else:
@@ -138,7 +135,9 @@ if len(args.figure_folder) != 0:
             ax.set_yticklabels([])
             ax.set_yticks([])
             ax1 = ax.twinx()
-            ax1.barh(range(len(labels)), scores, 0.9, color=colors, align='center')
+            ax1.barh(range(len(labels)), scores, 0.9, color=colors, align='center',
+                 xerr=[[abs(m-v) for m, v in sorted(zip(means, np.percentile(loadings, 2.5, axis=0)), reverse=True)],
+                       [abs(m-v) for m, v in sorted(zip(means, np.percentile(loadings, 97.5, axis=0)), reverse=True)]])
             ax1.set_yticks(range(len(labels)))
             ax1.set_yticklabels(labels)
             from matplotlib.patches import Patch
@@ -146,7 +145,7 @@ if len(args.figure_folder) != 0:
                 legend_elements = [Patch(facecolor='lightblue', label='Executive Functions'),
                                    Patch(facecolor='lightcoral', label='Memory'),
                                    Patch(facecolor='lightgreen', label='Language'),
-                                   Patch(facecolor='plum', label='Other')]
+                                   Patch(facecolor='plum', label='Mood/Social Cognition')]
                 ax1.legend(handles=legend_elements, loc='best')
             ax1.set_ylim(-0.5, len(labels)-0.5)
             ax1.spines["top"].set_visible(False)

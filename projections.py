@@ -96,7 +96,7 @@ def plot_age_effect(X, Y, df_info):
     dict_label={0:'Female', 1:'Male'}
     covar = [args.age_col]
     axes = plot_comparison(X[df_info[args.group_col] == 1], Y[df_info[args.group_col] == 1], 
-                           df_info[df_info[args.group_col] == 1], sex_col, covar,
+                           df_info[df_info[args.group_col] == 1], args.sex_col, covar,
                            axes, 0, dict_label, col, mode=0)
     axes[0, 0].legend(loc='upper left')
     axes[0, 2].set_title('Sulcal Width')
