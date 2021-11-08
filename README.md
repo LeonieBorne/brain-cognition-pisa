@@ -32,7 +32,7 @@ python permutation.py <brain_csv> <cognition_csv> <info_csv> -m -t
 
 This is checked using bootrapping tests on the [PLS loadings](https://scikit-learn.org/stable/modules/cross_decomposition.html#plscanonical), with the ```bootstrapping.py``` script:
 ```
-python bootstrapping.py <brain_csv> <cognition_csv> <info_csv> -m -t -f <figure_folder> --sulci_snapshot
+python bootstrapping.py <brain_csv> <cognition_csv> <info_csv> -m -t --sulci_snapshot
 ```
 
 ### Plot age and group effects
@@ -40,19 +40,19 @@ python bootstrapping.py <brain_csv> <cognition_csv> <info_csv> -m -t -f <figure_
 Use the ```projections.py``` script to plot the age and group effects (sex, clinical status, amyloid status, APOE) as follows:
 
 ```
-python projections.py <brain_csv> <cognition_csv> <info_csv> -m -t --plot_age_effect
+python projections.py <brain_csv> <cognition_csv> <info_csv> -m -t
 ```
 
 ### Is the specific composition of these modes implicitly optimized to covary with age?
 
 To test whether any linear weighting of cognition and brain features would perform comparably well to covary with age, permutation on the features are used with the ```features_permutation.py``` script:
 ```
-python features_permutation.py <brain_csv> <cognition_csv> <info_csv> -m -t -f <figure_file>
+python features_permutation.py <brain_csv> <cognition_csv> <info_csv> -m -t
 ```
 
 ### Are the features identified by performing PLS on the healthy participants optimized to identify out-of-sample clinical participants (MCI/AD)?
 
-The previous command also allows you to test if the linear weighting is optimized to identify out-of-sample participants.
+The previous command also allows you to test if the linear weighting is optimized to identify out-of-sample clinical participants.
 
 ### Sulci loadings comparison
 
