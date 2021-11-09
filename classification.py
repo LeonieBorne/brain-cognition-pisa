@@ -38,8 +38,7 @@ parser.add_argument("--cca", help="Use CCA instead of PLS model", action="store_
 parser.add_argument("-n", "--nperm", help="Number of permutation tests", type=int, default=1000)
 parser.add_argument("--mode", help="Tested mode (1rst: 0; 2nd: 1; etc.)", type=int, default=0)
 # output arguments
-parser.add_argument("-f", "--figure_folder", help="Output figure folder", default="")
-parser.add_argument("-o", "--output_file", help="Output csv file", default="")
+parser.add_argument("-o", "--output_folder", help="Directory to output folder (if not specified, output csv file and figure(s) will be saved in the current folder)", default=os.getcwd())
 
 args = parser.parse_args()
 
@@ -145,7 +144,7 @@ def scatter_plot(lv1_name='LV1', lv2_name='LV2', comparison=False):
         h1 = sns.kdeplot(x = lv1[gr == i],
                          shade = True, linewidth = 3, 
                          ax = ax_histx, color=col[i])
-    figfile = os.path.join(args.figure_folder, f'{lv1_name}_vs_{lv2_name}_scatter_plot.png')
+    figfile = os.path.join(args.output_folder, f'classification_{lv1_name}_vs_{lv2_name}_scatter_plot.png')
     fig.savefig(figfile, format='png', bbox_extra_artists=(h1,h2), bbox_inches='tight')
     print(f'Figure saved at {figfile}')
 
@@ -219,7 +218,7 @@ def auc_plot(lv1_name='LV1', lv2_name='LV2', comparison=False):
     
     axes[1].set_xlabel('False Positive Rate')
     axes[0].set_ylabel('True Positive Rate')
-    figfile = os.path.join(args.figure_folder, f'{lv1_name}_vs_{lv2_name}_AUC_plot.png')
+    figfile = os.path.join(args.output_folder, f'classification_{lv1_name}_vs_{lv2_name}_AUC_plot.png')
     fig.tight_layout()
     fig.savefig(figfile, format='png')
     print(f'Figure saved at {figfile}')

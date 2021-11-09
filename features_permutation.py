@@ -33,8 +33,7 @@ parser.add_argument("--cca", help="Use CCA instead of PLS model", action="store_
 parser.add_argument("-n", "--nperm", help="Number of permutation tests", type=int, default=1000)
 parser.add_argument("--mode", help="Tested mode (1rst: 0; 2nd: 1; etc.)", type=int, default=0)
 # output arguments
-parser.add_argument("-f", "--figure_file", help="Output figure file", default="")
-parser.add_argument("-o", "--output_file", help="Output csv file", default="")
+parser.add_argument("-o", "--output_folder", help="Directory to output folder (if not specified, output csv file and figure(s) will be saved in the current folder)", default=os.getcwd())
 
 args = parser.parse_args()
 
@@ -109,84 +108,86 @@ for perm in range(args.nperm):
     Ycogn_perm[perm] = Yperm[:, args.mode]
 
 # save output file
-if len(args.output_file) != 0:
-    df = pd.DataFrame()
-    for data, pname in zip([Xbrain_perm, Ycogn_perm],
-                           ['brain', 'cogn']):
-        for perm in range(args.nperm):
-            df[f'{pname}_perm{perm}'] = data[perm]
-    df.to_csv(args.output_file)
-    print(f'Results saved in {args.output_file}.')
+df = pd.DataFrame()
+for data, pname in zip([Xbrain_perm, Ycogn_perm],
+                       ['brain', 'cogn']):
+    for perm in range(args.nperm):
+        df[f'{pname}_perm{perm}'] = data[perm]
+output_file = os.path.join(args.output_folder, 'features_permutation_projections.csv')
+df.to_csv(output_file)
+print(f'\nPermuted projections saved in {output_file}.')
     
 # figure
-if len(args.figure_file) != 0:
-    plt.rcParams.update({'font.size': 25})
-    fig, axes = plt.subplots(4, 1, figsize=(9, 24))
-    nperm = len(Xbrain_perm)
-    for row in range(4):
-        ref_score = np.zeros(3)
-        scores = np.zeros([len(Xbrain_perm), 3])
-        pvals = []
-        for g in range(3):
-            if row == 3:
-                ref_score[g] = np.mean(Xbrain_r[df_info[args.group_col] == g+1,args.mode])
-                for perm in range(nperm):
-                    scores[perm, g] = np.mean(Xbrain_perm[perm, df_info[args.group_col] == g+1])
-            elif row == 2:
-                ref_score[g] = np.mean(Ycogn_r[df_info[args.group_col] == g+1,args.mode])
-                for perm in range(nperm):
-                    scores[perm, g] = np.mean(Ycogn_perm[perm, df_info[args.group_col] == g+1])
-            elif row == 1:
-                linreg = stats.linregress(df_info.loc[df_info[args.group_col] == g+1, 'Age'], 
-                                          Xbrain_r[df_info[args.group_col] == g+1,args.mode])
-                ref_score[g] = linreg.slope
-                for perm in range(nperm):
-                    linreg = stats.linregress(df_info.loc[df_info[args.group_col] == g+1, 'Age'], 
-                                              Xbrain_perm[perm, df_info[args.group_col] == g+1])
-                    scores[perm, g] = linreg.slope
-            else:
-                linreg = stats.linregress(df_info.loc[df_info[args.group_col] == g+1, 'Age'], 
-                                          Ycogn_r[df_info[args.group_col] == g+1,args.mode])
-                ref_score[g] = linreg.slope
-                for perm in range(args.nperm):
-                    linreg = stats.linregress(df_info.loc[df_info[args.group_col] == g+1, 'Age'], 
-                                              Ycogn_perm[perm, df_info[args.group_col] == g+1])
-                    scores[perm, g] = linreg.slope
-            pvals.append((sum(scores[:,g] >= ref_score[g]))/nperm)
-        ax = axes[row]
-        for perm in range(100):
-            ax.plot([1,2,3], scores[perm], color='silver', alpha=1, 
-                    linewidth=0.5, zorder=1)
-        color = 'salmon'
-        ax.plot([1,2,3], ref_score, color=color, alpha=1, linewidth=3, zorder=3)
-        ax.plot(range(1, 3+1), ref_score, color=color, marker='o', markersize=10, zorder=3)
-        ax.set_xticks(range(1, 3+1))
-        xticklabels = [f'HC\np{print_pval(pvals[0])}',
-                        f'MCI\np{print_pval(pvals[1])}', 
-                        f'AD\np{print_pval(pvals[2])}']
-        if row in [2, 3]:
-            xticklabels[0] = 'HC'
-        ax.set_xticklabels(xticklabels)
-        v = ax.violinplot(scores, showmedians=True)
-        for pc in v['bodies']:
-            pc.set_zorder(2)
-            pc.set_color('dimgrey')
-        for partname in ('cbars','cmins','cmaxes','cmedians'):
-            vp = v[partname]
-            vp.set_edgecolor('dimgrey')
-    axes[0].yaxis.labelpad = 20
-    axes[0].set_ylabel('(a) age-effect\non cognitive projections')
-    axes[1].yaxis.labelpad = 20
-    axes[1].set_ylabel('(b) age-effect\non SW projections')
-    axes[2].yaxis.labelpad = 20
-    axes[2].set_ylabel('(c) mean\ncognitive projections')
-    axes[3].yaxis.labelpad = 20
-    axes[3].set_ylabel('(d) mean\nSW projections')
-    axes[0].set_yticks([0,0.1,0.2,0.3])
-    axes[1].set_yticks([0.1,0.2,0.3,0.4])
-    axes[2].set_yticks([0,5,10])
-    axes[3].set_yticks([0,5,10])
-    fig.tight_layout()
-    fig.savefig(args.figure_file)
+plt.rcParams.update({'font.size': 25})
+fig, axes = plt.subplots(4, 1, figsize=(9, 24))
+nperm = len(Xbrain_perm)
+groups = sorted(list(set(df_info[args.group_col])))
+ngroup = len(groups)
+for row in range(4):
+    ref_score = np.zeros(ngroup)
+    scores = np.zeros([len(Xbrain_perm), ngroup])
+    pvals = []
+    for i in range(ngroup):
+        if row == 3:
+            ref_score[i] = np.mean(Xbrain_r[df_info[args.group_col] == groups[i],args.mode])
+            for perm in range(nperm):
+                scores[perm, i] = np.mean(Xbrain_perm[perm, df_info[args.group_col] == groups[i]])
+        elif row == 2:
+            ref_score[i] = np.mean(Ycogn_r[df_info[args.group_col] == groups[i],args.mode])
+            for perm in range(nperm):
+                scores[perm, i] = np.mean(Ycogn_perm[perm, df_info[args.group_col] == groups[i]])
+        elif row == 1:
+            linreg = stats.linregress(df_info.loc[df_info[args.group_col] == groups[i], 'Age'], 
+                                      Xbrain_r[df_info[args.group_col] == groups[i],args.mode])
+            ref_score[i] = linreg.slope
+            for perm in range(nperm):
+                linreg = stats.linregress(df_info.loc[df_info[args.group_col] == groups[i], 'Age'], 
+                                          Xbrain_perm[perm, df_info[args.group_col] == groups[i]])
+                scores[perm, i] = linreg.slope
+        else:
+            linreg = stats.linregress(df_info.loc[df_info[args.group_col] == groups[i], 'Age'], 
+                                      Ycogn_r[df_info[args.group_col] == groups[i],args.mode])
+            ref_score[i] = linreg.slope
+            for perm in range(args.nperm):
+                linreg = stats.linregress(df_info.loc[df_info[args.group_col] == groups[i], 'Age'], 
+                                          Ycogn_perm[perm, df_info[args.group_col] == groups[i]])
+                scores[perm, i] = linreg.slope
+        pvals.append((sum(scores[:,i] >= ref_score[i]))/nperm)
+    ax = axes[row]
+    for perm in range(100):
+        ax.plot(range(1, ngroup+1), scores[perm], color='silver', alpha=1, 
+                linewidth=0.5, zorder=1)
+    color = 'salmon'
+    ax.plot(range(1, ngroup+1), ref_score, color=color, alpha=1, linewidth=3, zorder=3)
+    ax.plot(range(1, ngroup+1), ref_score, color=color, marker='o', markersize=10, zorder=3)
+    ax.set_xticks(range(1, ngroup+1))
+    groups_name = ['HC', 'MCI', 'AD']
+    xticklabels = [f'{groups_name[i]}\np{print_pval(pvals[i])}' for i in range(ngroup)]
+    if row in [2, 3]:
+        xticklabels[0] = 'HC'
+    ax.set_xticklabels(xticklabels)
+    v = ax.violinplot(scores, showmedians=True)
+    for pc in v['bodies']:
+        pc.set_zorder(2)
+        pc.set_color('dimgrey')
+    for partname in ('cbars','cmins','cmaxes','cmedians'):
+        vp = v[partname]
+        vp.set_edgecolor('dimgrey')
+axes[0].yaxis.labelpad = 20
+axes[0].set_ylabel('(a) age-effect\non cognitive projections')
+axes[1].yaxis.labelpad = 20
+axes[1].set_ylabel('(b) age-effect\non SW projections')
+axes[2].yaxis.labelpad = 20
+axes[2].set_ylabel('(c) mean\ncognitive projections')
+axes[3].yaxis.labelpad = 20
+axes[3].set_ylabel('(d) mean\nSW projections')
+# axes[0].set_yticks([0,0.1,0.2,0.3])
+# axes[1].set_yticks([0.1,0.2,0.3,0.4])
+# axes[2].set_yticks([0,5,10])
+# axes[3].set_yticks([0,5,10])
+fig.tight_layout()
+figure_file = os.path.join(args.output_folder, 'features_permutation_figure.png')
+fig.savefig(figure_file)
+print(f'Figure saved as {figure_file}.')
 
 exit(0)

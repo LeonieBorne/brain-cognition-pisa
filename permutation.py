@@ -29,9 +29,9 @@ parser.add_argument("-t", "--train_hc_only", help="Train only on healthy partici
 # model options
 parser.add_argument("--cca", help="Use CCA instead of Canonical PLS model", action="store_true")
 parser.add_argument("-p", "--nperm", help="Number of permutation tests", type=int, default=1000)
+parser.add_argument("--modes", help="Number of modes", type=int, default=5)
 # output arguments
-parser.add_argument("-f", "--figure_file", help="Output figure", default="")
-parser.add_argument("-o", "--output_file", help="Output csv file", default="")
+parser.add_argument("-o", "--output_folder", help="Directory to output folder (if not specified, output csv file and figure(s) will be saved in the current folder)", default=os.getcwd())
 
 args = parser.parse_args()
 
@@ -43,7 +43,7 @@ df_brain, df_cogn, df_info = functions.preprocessing.check_csv_files(
 if args.drop_rate < 0 or args.drop_rate > 1:
     print(f'Drop rate should be between 0 and 1. {args.drop_rate} is not a valid value.')
     exit(1)
-    
+
 # preprocessing
 df_brain, df_cogn, df_info, Xbrain, Ycogn = functions.preprocessing.preprocessing(
     df_brain, df_cogn, df_info, 
@@ -54,13 +54,13 @@ df_brain, df_cogn, df_info, Xbrain, Ycogn = functions.preprocessing.preprocessin
 # permutation tests
 if args.cca:
     print('Using CCA...')
-    pipeline = functions.pls.PLSPipeline(CCA(n_components=5, max_iter=1000),
+    pipeline = functions.pls.PLSPipeline(CCA(n_components=args.modes, max_iter=1000),
                            Ximputer=SimpleImputer(strategy="mean"),
                            Yimputer=SimpleImputer(strategy="mean"))
     score_func = np.corrcoef
 else:
     print('Using Canonical PLS...')
-    pipeline = functions.pls.PLSPipeline(PLSCanonical(n_components=5, max_iter=1000),
+    pipeline = functions.pls.PLSPipeline(PLSCanonical(n_components=args.modes, max_iter=1000),
                            Ximputer=SimpleImputer(strategy="mean"),
                            Yimputer=SimpleImputer(strategy="mean"))
     score_func = np.cov
@@ -114,30 +114,30 @@ if pvals[0] <= 0.05:
 print(rstr)
 
 # save output csv file
-if len(args.output_file) != 0:
-    df = pd.DataFrame(scores.T)
-    df.columns = [f'perm_{c}' for c in df.columns]
-    df['score'] = ref_score
-    df['zscore'] = zcov
-    df.to_csv(args.output_file)
-    print(f'Results saved in {args.output_file}.')
+df = pd.DataFrame(scores.T)
+df.columns = [f'perm_{c}' for c in df.columns]
+df['score'] = ref_score
+df['zscore'] = zcov
+output_file = os.path.join(args.output_folder, 'permutation_scores.csv')
+df.to_csv(output_file)
+print(f'Permuted scores saved in {output_file}.')
 
 # figure
-if len(args.figure_file) != 0:
-    import matplotlib.pyplot as plt
-    plt.figure(figsize=(10, 6))
-    plt.rcParams.update({'font.size': 24})
-    plt.bar(range(1, n_comp+1), up_list, color='silver', alpha=0.4)
-    plt.plot(range(1, n_comp+1), ref_score, 'bo')
-    plt.xlabel("modes")
-    if args.cca:
-        plt.ylabel("correlation")
-    else:
-        plt.ylabel("covariance")
-    plt.title('Permutation tests')
-    plt.xticks(range(1, n_comp+1))
-    plt.violinplot(scores)
-    plt.savefig(args.figure_file)
-    print(f'Figure saved as {args.figure_file}.')
+import matplotlib.pyplot as plt
+plt.figure(figsize=(10, 6))
+plt.rcParams.update({'font.size': 24})
+plt.bar(range(1, n_comp+1), up_list, color='silver', alpha=0.4)
+plt.plot(range(1, n_comp+1), ref_score, 'bo')
+plt.xlabel("modes")
+if args.cca:
+    plt.ylabel("correlation")
+else:
+    plt.ylabel("covariance")
+plt.title('Permutation tests')
+plt.xticks(range(1, n_comp+1))
+plt.violinplot(scores)
+figure_file = os.path.join(args.output_folder, 'permutation_figure.png')
+plt.savefig(figure_file)
+print(f'Figure saved as {figure_file}.')
 
 exit(0)

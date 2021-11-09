@@ -37,9 +37,7 @@ parser.add_argument("--cca", help="Use CCA instead of PLS model", action="store_
 parser.add_argument("-n", "--nboot", help="Number of bootstrapping tests", type=int, default=1000)
 parser.add_argument("--modes", help="Number of modes", type=int, default=1)
 # output arguments
-parser.add_argument("-f", "--figure_folder", help="Output figures folder", default="")
-parser.add_argument("-o", "--output_file", help="Output csv file", default="")
-parser.add_argument("--plot_age_effect", help="Plot age effect", action="store_true")
+parser.add_argument("-o", "--output_folder", help="Directory to output folder (if not specified, output csv file and figure(s) will be saved in the current folder)", default=os.getcwd())
 
 args = parser.parse_args()
 
@@ -75,14 +73,14 @@ pipeline.fit(Xbrain, Ycogn)
 Xbrain_r, Ycogn_r = pipeline.transform(df_brain, df_cogn)
 
 # save projections
-if len(args.output_file) != 0:
-    df = pd.DataFrame()
-    for data, pname in zip([Xbrain_r, Ycogn_r],
-                           ['brain', 'cogn']):
-        for mode in range(args.modes):
-            df[f'mode{mode}_{pname}'] = data[:,mode]
-    df.to_csv(args.output_file)
-    print(f'Results saved in {args.output_file}.')
+df = pd.DataFrame()
+for data, pname in zip([Xbrain_r, Ycogn_r],
+                       ['brain', 'cogn']):
+    for mode in range(args.modes):
+        df[f'mode{mode}_{pname}'] = data[:,mode]
+output_file = os.path.join(args.output_folder, 'projections.csv')
+df.to_csv(output_file)
+s = f'Brain and cognitive projections saved in {output_file}.\n'
 
 # plot functions definition
 def plot_age_effect(X, Y, df_info):
@@ -205,7 +203,7 @@ def plot_comparison(X, Y, df_info, between, covar, axes, line,
             patch.set_facecolor(color)
         df = df_info[covar + [between]][~pd.isnull(groups)]
         df['dv'] = x
-        if len(set(gr)) > 2:
+        if len(set(gr)) == 3:
             # test mean difference
             for g, th in zip([[1, 2], [2, 3], [1, 3]], [0, 5, 15]):
                 anc = ancova(data=df[df_info[args.group_col].isin(g)], dv='dv',
@@ -221,7 +219,7 @@ def plot_comparison(X, Y, df_info, between, covar, axes, line,
                 tstat, pval = test_slopes_anova(y[gr==grs[0]], x[gr==grs[0]], 
                                           y[gr==grs[1]], x[gr==grs[1]])
                 print(f'{lv}: slope difference {dict_label[grs[0]]} vs. {dict_label[grs[1]]} p{print_pval(pval)}')
-        else:
+        elif len(set(gr)) == 2:
             grs = list(set(gr))
             # test mean difference
             anc = ancova(data=df, dv='dv', covar=covar, between=between)
@@ -249,14 +247,16 @@ def test_slopes_anova(X1, Y1, X2, Y2):
     return anc.loc['interaction', 'F'], anc.loc['interaction', 'p-unc']
 
 # save figures
-if args.plot_age_effect:
+print()
+for mode in range(args.modes):
+    print(f'======== MODE {mode} ========')
+    fig = plot_age_effect(Xbrain_r[:, mode], Ycogn_r[:, mode], df_info)
+    figure_file = os.path.join(args.output_folder, f'projections_age_effect_mode{mode}.png')
+    fig.savefig(figure_file)
+    s += f'Figure with age effect for mode {mode} saved as {figure_file}.\n'
     print()
-    for mode in range(args.modes):
-        print(f'======== MODE {mode} ========')
-        fig = plot_age_effect(Xbrain_r[:, mode], Ycogn_r[:, mode], df_info)
-        fig.savefig(os.path.join(args.figure_folder, 
-                                 f'age_plot_mode{mode}.png'))
-        print()
-    print(f'Figures saved in {args.figure_folder}.')
+
+print()
+print(s)
 
 exit(0)

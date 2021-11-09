@@ -41,7 +41,7 @@ parser.add_argument("--cca", help="Use CCA instead of PLS model", action="store_
 parser.add_argument("-n", "--nboot", help="Number of bootstrapping tests", type=int, default=1000)
 parser.add_argument("--mode", help="Tested mode (1rst: 0; 2nd: 1; etc.)", type=int, default=0)
 # output arguments
-parser.add_argument("-f", "--figure_folder", help="Output figure folder", default="")
+parser.add_argument("-o", "--output_folder", help="Directory to output folder (if not specified, output csv file and figure(s) will be saved in the current folder)", default=os.getcwd())
 
 args = parser.parse_args()
 
@@ -78,10 +78,12 @@ mean = True
 cogn_startswith = None
 
 boostx = []
+id = 1
 for df_brain, df_cogn, df_info, regress_out_confounds, train_hc_only in zip(
         [df_brain1, df_brain2], [df_cogn1, df_cogn2], [df_info1, df_info2],
         [args.regress_out_confounds1, args.regress_out_confounds2],
         [args.train_hc_only1, args.train_hc_only2]):
+    print(f'Computing loadings for dataset {id}...')
     dfb, dfc, dfi, Xbrain, Ycogn = functions.preprocessing.preprocessing(
         df_brain, df_cogn, df_info, 
         group_col=args.group_col, age_col=args.age_col, sex_col=args.sex_col,
@@ -94,24 +96,27 @@ for df_brain, df_cogn, df_info, regress_out_confounds, train_hc_only in zip(
         Xrt, Yrt = pipeline.fit_transform(Xr, Yr)
         x_loadings.append(pipeline.PLS.x_loadings_)
     boostx.append(np.array(x_loadings))
+    id += 1
+
+# correlations
+corr = np.corrcoef([np.array(boostx[i]).mean(axis=0)[:, 0] for i in range(2)])
+print(f'Loadings correlation: {corr[0,1]}\n')
 
 # sulci snapshot
+rs = '\n'
 sc = np.array(boostx[0]).mean(axis=0)[:, args.mode] - np.array(boostx[1]).mean(axis=0)[:, args.mode]
+m = max([abs(max(sc)), abs(min(sc))])
 dict_sulcus = {s+'_left': x for s,x in zip(Xbrain.columns, sc) if s!=0}
 for s in Xbrain.columns:
     dict_sulcus[s+'_left'] = dict_sulcus[s+'_left']
 dict_reg = {0 : [0.5, -0.5, -0.5, 0.5], 1 : [0.5, 0.5, 0.5, 0.5]}
 for side in ['left']:
     for reg in [0, 1]:
-        sfile = os.path.join(args.figure_folder, f'brain1-brain2_{side}{reg}.png')
+        sfile = os.path.join(args.output_folder, f'sulci_loadings_comparison_brain1-brain2_{side}{reg}.png')
         functions.snapshots.view_sulcus_scores(
-            dict_sulcus, side=side, reg_q=dict_reg[reg],
-            minVal=-0.07, maxVal=0.07, snapshot=sfile)
-        print(f'Snapshot saved at {sfile}')
-
-# correlations
-corr = np.corrcoef([np.array(boostx[i]).mean(axis=0)[:, 0] for i in range(2)])
-print(f'Loadings correlation: {corr[0,1]}')
+            dict_sulcus, side=side, reg_q=dict_reg[reg], snapshot=sfile,
+            minVal=-m, maxVal=m)
+        rs += f'Snapshot saved at {sfile} with scale from {-m:.3f} to {m:.3f}\n'
 
 # histogram
 means = np.array(boostx).mean(axis=0).mean(axis=0)[:,0]
@@ -141,8 +146,9 @@ for i in range(2):
     ax.spines["bottom"].set_visible(False)
 axes[0].set_yticks(range(len(labels)))
 axes[0].set_yticklabels(labels)
-figfile = os.path.join(args.figure_folder, 'hist_loadings_comparison.png')
+figfile = os.path.join(args.output_folder, 'sulci_loadings_comparison_histogram.png')
 fig.savefig(figfile)
-print(f'Figure saved at {figfile}')
+rs+= f'Figure saved at {figfile}\n'
 
+print(rs)
 exit(0)

@@ -11,6 +11,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.utils import resample
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 # command line arguments
@@ -32,8 +33,7 @@ parser.add_argument("--cca", help="Use CCA instead of PLS model", action="store_
 parser.add_argument("-n", "--nboot", help="Number of bootstrapping tests", type=int, default=1000)
 parser.add_argument("--modes", help="Number of modes", type=int, default=1)
 # output arguments
-parser.add_argument("-f", "--figure_folder", help="Output figures folder", default="")
-parser.add_argument("-o", "--output_file", help="Output csv file", default="")
+parser.add_argument("-o", "--output_folder", help="Directory to output folder (if not specified, output csv file and figure(s) will be saved in the current folder)", default=os.getcwd())
 parser.add_argument("--sulci_snapshot", help="Cortical sulci snapshots (only available if brain csv columns are sulci names)", action="store_true")
 
 args = parser.parse_args()
@@ -80,101 +80,107 @@ x_loadings = np.array(x_loadings)
 y_loadings = np.array(y_loadings)
 
 # print results
+print()
 for comp in range(pipeline.PLS.n_components):
-    print(f'===== COMPONENT {comp} =====')
+    print(f'===== MODE {comp} =====')
     for mean_weight, std_weight, var in sorted(zip(
       np.mean(y_loadings, axis=0)[:, comp],
       np.std(y_loadings, axis=0)[:, comp], Ycogn.columns)):
         print(f'{mean_weight:.3f} +/- {std_weight:.3f} {var}')
-
+print()
 for comp in range(pipeline.PLS.n_components):
-    print(f'===== COMPONENT {comp} =====')
+    print(f'===== MODE {comp} =====')
     for mean_weight, std_weight, var in sorted(zip(
       np.mean(x_loadings, axis=0)[:, comp],
       np.std(x_loadings, axis=0)[:, comp], Xbrain.columns)):
         print(f'{mean_weight:.3f} +/- {std_weight:.3f} {var}')
+print()
 
 # save output csv file
-if len(args.output_file) != 0:
-    df = pd.DataFrame()
-    for loadings, columns in zip([x_loadings, y_loadings],
-                                 [Xbrain.columns, Ycogn.columns]):
-        for mode in range(args.modes):
-            for data, col in zip(loadings[:,:,mode].T, columns):
-                df[f'mode{mode}_{col}'] = data
-    df.to_csv(args.output_file)
-    print(f'Results saved in {args.output_file}.')
+df = pd.DataFrame()
+for loadings, columns in zip([x_loadings, y_loadings],
+                             [Xbrain.columns, Ycogn.columns]):
+    for mode in range(args.modes):
+        for data, col in zip(loadings[:,:,mode].T, columns):
+            df[f'mode{mode}_{col}'] = data
+output_file = os.path.join(args.output_folder, 'bootstrapping_loadings.csv')
+df.to_csv(output_file)
+s = f'Bootstrapped loadings saved in {output_file}.\n'
 
 # figure - cognitive loadings
-if len(args.figure_folder) != 0:
-    import matplotlib.pyplot as plt
-    for mode in range(args.modes):
-        for loadings, columns, fname in zip([x_loadings[:,:,mode], y_loadings[:,:,mode]],
-                                            [Xbrain.columns, Ycogn.columns],
-                                            ['brain', 'cogn']):
-            means = np.mean(loadings, axis=0)
-            full_labels = [l for m, l in sorted(zip(means, columns))]
-            scores = [m for m in sorted(means)]
-            colors, labels = [], []
-            for l in full_labels:
-                if l.startswith('M.') or l.startswith('M_'):
-                    colors.append('lightcoral')
-                    labels.append(l[2:])
-                elif l.startswith('L.') or l.startswith('L_'):
-                    colors.append('lightgreen')
-                    labels.append(l[2:])
-                elif l.startswith('E.') or l.startswith('E_'):
-                    colors.append('lightblue')
-                    labels.append(l[2:])
-                else:
-                    colors.append('plum')
-                    labels.append(l)
-                    
-            plt.rcParams.update({'font.size': 40})
-            fig, ax = plt.subplots(figsize=(30, 30))
-            ax.set_yticklabels([])
-            ax.set_yticks([])
-            ax1 = ax.twinx()
-            ax1.barh(range(len(labels)), scores, 0.9, color=colors, align='center',
-                 xerr=[[abs(m-v) for m, v in sorted(zip(means, np.percentile(loadings, 2.5, axis=0)), reverse=True)],
-                       [abs(m-v) for m, v in sorted(zip(means, np.percentile(loadings, 97.5, axis=0)), reverse=True)]])
-            ax1.set_yticks(range(len(labels)))
-            ax1.set_yticklabels(labels)
-            from matplotlib.patches import Patch
-            if len(set(colors)) > 1:
-                legend_elements = [Patch(facecolor='lightblue', label='Executive Functions'),
-                                   Patch(facecolor='lightcoral', label='Memory'),
-                                   Patch(facecolor='lightgreen', label='Language'),
-                                   Patch(facecolor='plum', label='Mood/Social Cognition')]
-                ax1.legend(handles=legend_elements, loc='best')
-            ax1.set_ylim(-0.5, len(labels)-0.5)
-            ax1.spines["top"].set_visible(False)
-            ax1.spines["right"].set_visible(False)
-            ax1.spines["left"].set_visible(False)
-            ax1.spines["bottom"].set_visible(False)
-            ax.spines["top"].set_visible(False)
-            ax.spines["right"].set_visible(False)
-            ax.spines["left"].set_visible(False)
-            ax.spines["bottom"].set_visible(False)
-            fig.tight_layout()
-            fig.savefig(os.path.join(args.figure_folder, 
-                                     f'{fname}_loadings_mode{mode}.png'))
-        if args.sulci_snapshot:
-            # figure - brain loadings
-            scores = [m if up*down > 0 else 0 for m, up, down in zip(
-                np.mean(x_loadings, axis=0)[:, 0],
-                np.percentile(x_loadings, 97.5, axis=0)[:, 0],
-                np.percentile(x_loadings, 2.5, axis=0)[:, 0])]
-            dict_sulcus = {s+'_left': x for s,x in zip(Xbrain.columns, scores) if x!=0}
-            dict_reg = {0 : [0.5, -0.5, -0.5, 0.5], 1 : [0.5, 0.5, 0.5, 0.5]}
-            for reg in [0, 1]:
-                functions.snapshots.view_sulcus_scores(
-                    dict_sulcus, side='left', reg_q=dict_reg[reg],
-                    minVal=0, maxVal=0.2, 
-                    snapshot=os.path.join(
-                        args.figure_folder, 
-                        f'brain_loadings_mode{mode}_view{reg}.png'))
+for mode in range(args.modes):
+    for loadings, columns, fname in zip([x_loadings[:,:,mode], y_loadings[:,:,mode]],
+                                        [Xbrain.columns, Ycogn.columns],
+                                        ['brain', 'cogn']):
+        means = np.mean(loadings, axis=0)
+        full_labels = [l for m, l in sorted(zip(means, columns))]
+        scores = [m for m in sorted(means)]
+        colors, labels = [], []
+        for l in full_labels:
+            if l.startswith('M.') or l.startswith('M_'):
+                colors.append('lightcoral')
+                labels.append(l[2:])
+            elif l.startswith('L.') or l.startswith('L_'):
+                colors.append('lightgreen')
+                labels.append(l[2:])
+            elif l.startswith('E.') or l.startswith('E_'):
+                colors.append('lightblue')
+                labels.append(l[2:])
+            else:
+                colors.append('plum')
+                labels.append(l)
+                
+        plt.rcParams.update({'font.size': 40})
+        fig, ax = plt.subplots(figsize=(30, 30))
+        ax.set_yticklabels([])
+        ax.set_yticks([])
+        ax1 = ax.twinx()
+        ax1.barh(range(len(labels)), scores, 0.9, color=colors, align='center',
+             xerr=[[abs(m-v) for m, v in sorted(zip(means, np.percentile(loadings, 2.5, axis=0)), reverse=True)],
+                   [abs(m-v) for m, v in sorted(zip(means, np.percentile(loadings, 97.5, axis=0)), reverse=True)]])
+        ax1.set_yticks(range(len(labels)))
+        ax1.set_yticklabels(labels)
+        from matplotlib.patches import Patch
+        if len(set(colors)) > 1:
+            legend_elements = [Patch(facecolor='lightblue', label='Executive Functions'),
+                               Patch(facecolor='lightcoral', label='Memory'),
+                               Patch(facecolor='lightgreen', label='Language'),
+                               Patch(facecolor='plum', label='Mood/Social Cognition')]
+            ax1.legend(handles=legend_elements, loc='best')
+        ax1.set_ylim(-0.5, len(labels)-0.5)
+        ax1.spines["top"].set_visible(False)
+        ax1.spines["right"].set_visible(False)
+        ax1.spines["left"].set_visible(False)
+        ax1.spines["bottom"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+        fig.tight_layout()
+        figure_file = os.path.join(
+            args.output_folder, 
+            f'boostrapping_figure_{fname}_loadings_mode{mode}.png')
+        fig.savefig(figure_file)
+        s += f'Figure with {fname} loadings for mode {mode} saved as {figure_file}.\n'
 
-    print(f'Figures saved in {args.figure_folder}.')
+    if args.sulci_snapshot:
+        # figure - brain loadings
+        scores = [m if up*down > 0 else 0 for m, up, down in zip(
+            np.mean(x_loadings, axis=0)[:, 0],
+            np.percentile(x_loadings, 97.5, axis=0)[:, 0],
+            np.percentile(x_loadings, 2.5, axis=0)[:, 0])]
+        dict_sulcus = {s+'_left': x for s,x in zip(Xbrain.columns, scores) if x!=0}
+        dict_reg = {0 : [0.5, -0.5, -0.5, 0.5], 1 : [0.5, 0.5, 0.5, 0.5]}
+        for reg in [0, 1]:
+            snapshot_file = os.path.join(
+               args.output_folder, 
+               f'bootstrapping_sulci_loadings_mode{mode}_view{reg}.png')
+            functions.snapshots.view_sulcus_scores(
+                dict_sulcus, side='left', reg_q=dict_reg[reg],
+                minVal=0, maxVal=0.2, 
+                snapshot=snapshot_file)
+            s += f'Sulci snapshot (mode {mode}, view {reg}) saved as {snapshot_file}.\n'
+print()
+print(s)
 
 exit(0)
