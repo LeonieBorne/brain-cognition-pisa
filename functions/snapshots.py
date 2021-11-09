@@ -138,7 +138,7 @@ def view_sulcus_scores(dict_scores, side='left',
             else:
                 back = 'white'
 
-            snapshot_path = snapshot[:snapshot.rfind('/')]
+            snapshot_path = os.path.abspath(snapshot[:snapshot.rfind('/')])
             snapshot_name = snapshot[snapshot.rfind('/'):snapshot.rfind('.')]
             df.to_csv('/tmp/{}.csv'.format(snapshot_name), float_format='%.100f')
             
@@ -146,13 +146,13 @@ def view_sulcus_scores(dict_scores, side='left',
                 cmd = 'XSOCK=/tmp/.X11-unix '
                 cmd += '&& XAUTH=/tmp/.docker.xauth '
                 cmd += "&& xauth nlist :0 | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge - && "
-                cmd += 'docker run '
+                cmd += 'docker run -v $XAUTH:$XAUTH -e XAUTHORITY=$XAUTH -v $XSOCK:$XSOCK '
             elif platform == 'darwin':
-                cmd = "docker run -e DISPLAY=host.docker.internal:0 "
+                cmd = "xhost +localhost && docker run -e DISPLAY=host.docker.internal:0 "
             else:
                 cmd = "docker run "
             cmd += '--rm -v /tmp/{}.csv:/home/{}.csv: '.format(snapshot_name, snapshot_name) +\
-                   ' -v {}:/home/snapshot: -v $XSOCK:$XSOCK -v $XAUTH:$XAUTH -e XAUTHORITY=$XAUTH '.format(snapshot_path) +\
+                   ' -v {}:/home/snapshot: '.format(snapshot_path) +\
                    'leonieborne/morphologist-deepsulci:snapshots /bin/bash -c ' +\
                    '". /home/brainvisa/build/bug_fix/bin/bv_env.sh /home/brainvisa/build/bug_fix ' +\
                    '&& python ./snapshots.py -c /home/{}.csv -o /home/snapshot{}.png '.format(snapshot_name, snapshot_name) +\
