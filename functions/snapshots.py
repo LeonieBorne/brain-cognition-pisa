@@ -1,5 +1,7 @@
 import os
 import pandas as pd
+from sys import platform
+
 
 def view_sulcus_scores(dict_scores, side='left',
                         snapshot=None, reg_q=[0.5, -0.5, -0.5, 0.5],
@@ -139,12 +141,16 @@ def view_sulcus_scores(dict_scores, side='left',
             snapshot_path = snapshot[:snapshot.rfind('/')]
             snapshot_name = snapshot[snapshot.rfind('/'):snapshot.rfind('.')]
             df.to_csv('/tmp/{}.csv'.format(snapshot_name), float_format='%.100f')
-            cmd = 'XSOCK=/tmp/.X11-unix '
-            cmd += '&& XAUTH=/tmp/.docker.xauth '
-            cmd += "&& xauth nlist :0 | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge - "
-            cmd += '&& docker run --rm -v /tmp/{}.csv:/home/{}.csv: '.format(snapshot_name, snapshot_name) +\
+            
+            if platform == 'linux' or platform == 'linux2':
+                cmd = 'XSOCK=/tmp/.X11-unix '
+                cmd += '&& XAUTH=/tmp/.docker.xauth '
+                cmd += "&& xauth nlist :0 | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge - && "
+            else:
+                cmd = ""
+            cmd += 'docker run --rm -v /tmp/{}.csv:/home/{}.csv: '.format(snapshot_name, snapshot_name) +\
                     ' -v {}:/home/snapshot: -v $XSOCK:$XSOCK -v $XAUTH:$XAUTH -e XAUTHORITY=$XAUTH '.format(snapshot_path) +\
-                    '9051257e588b /bin/bash -c ' +\
+                    'leonieborne/morphologist-deepsulci:snapshots /bin/bash -c ' +\
                     '". /home/brainvisa/build/bug_fix/bin/bv_env.sh /home/brainvisa/build/bug_fix ' +\
                     '&& python ./snapshots.py -c /home/{}.csv -o /home/snapshot{}.png '.format(snapshot_name, snapshot_name) +\
                     "-s {} -r {} -p '{}' -b {}".format(side, rotation, palette, back)
