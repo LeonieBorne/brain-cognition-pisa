@@ -146,14 +146,17 @@ def view_sulcus_scores(dict_scores, side='left',
                 cmd = 'XSOCK=/tmp/.X11-unix '
                 cmd += '&& XAUTH=/tmp/.docker.xauth '
                 cmd += "&& xauth nlist :0 | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge - && "
+                cmd += 'docker run '
+            elif platform == 'darwin':
+                cmd = "docker run -e DISPLAY=host.docker.internal:0 "
             else:
-                cmd = ""
-            cmd += 'docker run --rm -v /tmp/{}.csv:/home/{}.csv: '.format(snapshot_name, snapshot_name) +\
-                    ' -v {}:/home/snapshot: -v $XSOCK:$XSOCK -v $XAUTH:$XAUTH -e XAUTHORITY=$XAUTH '.format(snapshot_path) +\
-                    'leonieborne/morphologist-deepsulci:snapshots /bin/bash -c ' +\
-                    '". /home/brainvisa/build/bug_fix/bin/bv_env.sh /home/brainvisa/build/bug_fix ' +\
-                    '&& python ./snapshots.py -c /home/{}.csv -o /home/snapshot{}.png '.format(snapshot_name, snapshot_name) +\
-                    "-s {} -r {} -p '{}' -b {}".format(side, rotation, palette, back)
+                cmd = "docker run "
+            cmd += '--rm -v /tmp/{}.csv:/home/{}.csv: '.format(snapshot_name, snapshot_name) +\
+                   ' -v {}:/home/snapshot: -v $XSOCK:$XSOCK -v $XAUTH:$XAUTH -e XAUTHORITY=$XAUTH '.format(snapshot_path) +\
+                   'leonieborne/morphologist-deepsulci:snapshots /bin/bash -c ' +\
+                   '". /home/brainvisa/build/bug_fix/bin/bv_env.sh /home/brainvisa/build/bug_fix ' +\
+                   '&& python ./snapshots.py -c /home/{}.csv -o /home/snapshot{}.png '.format(snapshot_name, snapshot_name) +\
+                   "-s {} -r {} -p '{}' -b {}".format(side, rotation, palette, back)
             if minVal is not None:
                 cmd += ' -m {}'.format(minVal)
             if maxVal is not None:
