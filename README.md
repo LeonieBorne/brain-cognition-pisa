@@ -35,6 +35,15 @@ This is checked using bootrapping tests on the [PLS loadings](https://scikit-lea
 python bootstrapping.py <brain_csv> <cognition_csv> <info_csv> -m -t --sulci_snapshot
 ```
 
+#### Sulci snapshot troubleshooting
+To make sulci snapshots with MacOS, you will need to:
+- Install [XQuartz](https://www.xquartz.org/).
+- From the XQuartz preferences, in the ```security``` tab, make sure ```Allow connections from network clients``` is enabled. 
+- Restart XQuartz.
+- Verify that Docker daemon is running (by opening Docker Desktop).
+
+Here are some useful links for troubleshooting with [Linux](https://stackoverflow.com/questions/16296753/can-you-run-gui-applications-in-a-linux-docker-container/25280523#25280523) and [MacOS](https://gist.github.com/cschiewek/246a244ba23da8b9f0e7b11a68bf3285#gistcomment-3477013)
+
 ### Plot age and group effects
 
 Use the ```projections.py``` script to plot the age and group effects (sex, clinical status, amyloid status, APOE) as follows:
