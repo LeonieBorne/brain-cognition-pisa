@@ -7,9 +7,11 @@ import pandas as pd
 import numpy as np
 import functions.preprocessing
 import functions.pls
+import seaborn as sns
 from sklearn.cross_decomposition import PLSCanonical, CCA
 from sklearn.impute import SimpleImputer
 from sklearn.utils import shuffle
+from sklearn.metrics import r2_score
 
 
 # command line arguments
@@ -70,15 +72,18 @@ x_scores, y_scores = pipeline.fit_transform(Xbrain, Ycogn)
 n_comp = pipeline.PLS.n_components
 ref_score = np.diag(score_func(
     x_scores, y_scores, rowvar=False)[:n_comp, n_comp:])
+ref_r2 = r2_score(x_scores, y_scores, multioutput='raw_values')
 
-scores = []
+scores, r2_scores = [], []
 for i in range(args.nperm):
     X = Xbrain
     Y = shuffle(Ycogn, random_state=i)
     x_scores, y_scores = pipeline.fit_transform(X, Y)
     scores.append(np.diag(score_func(
         x_scores, y_scores, rowvar=False)[:n_comp, n_comp:]))
+    r2_scores.append(r2_score(x_scores, y_scores, multioutput='raw_values'))
 scores = np.array(scores)
+r2_scores = np.array(r2_scores)
 
 # print result
 def print_pval(p):
@@ -100,7 +105,7 @@ p = 0.05
 scores = np.array(scores)
 up_list = []
 print()
-pvals, zcov = [], []
+pvals, zcov, zr2 = [], [], []
 for mode in range(n_comp):
     sc = ref_score[mode]
     zsc = (sc-np.mean(scores[:, 0]))/np.std(scores[:, 0])
@@ -108,9 +113,11 @@ for mode in range(n_comp):
     up_list.append(up)
     pvals.append(sum(scores[:, 0] >= sc)/args.nperm) 
     zcov.append(zsc)
+    zr2.append((ref_r2[mode]-np.mean(r2_scores[:, 0]))/np.std(r2_scores[:, 0]))
 rstr = f'RESULT: 1st mode, p{print_pval(pvals[0])}'
 if pvals[0] <= 0.05:
-    rstr += f', z={zcov[0]:.2f}; 2nd mode, p{print_pval(pvals[1])}'
+    rstr += f', cov={ref_score[0]:.2f}, z-cov={zcov[0]:.2f}, r2={ref_r2[0]:.2f}, z-r2={zr2[0]:.2f};'
+    rstr += f' 2nd mode, p{print_pval(pvals[1])}'
 print(rstr)
 
 # save output csv file
@@ -122,7 +129,17 @@ output_file = os.path.join(args.output_folder, 'permutation_scores.csv')
 df.to_csv(output_file)
 print(f'Permuted scores saved in {output_file}.')
 
-# figure
+# figures
+sns.set_style("white")
+x_scores, y_scores = pipeline.fit_transform(Xbrain, Ycogn)
+df = pd.DataFrame({'Brain projections' : x_scores[:,0], 'Cognitive projections' : y_scores[:,0]})
+fig = sns.regplot(x='Brain projections', y='Cognitive projections', data=df)
+fig.set_title(f'cov={ref_score[0]:.2f}, z-cov={zcov[0]:.2f}, r2={ref_r2[0]:.2f}')
+figure_file = os.path.join(args.output_folder, 'latent_variables.png')
+figure = fig.get_figure()
+figure.savefig(figure_file)
+print(f'Latent variables (mode 0) figure saved as {figure_file}.')
+
 import matplotlib.pyplot as plt
 plt.figure(figsize=(10, 6))
 plt.rcParams.update({'font.size': 24})
@@ -138,6 +155,6 @@ plt.xticks(range(1, n_comp+1))
 plt.violinplot(scores)
 figure_file = os.path.join(args.output_folder, 'permutation_figure.png')
 plt.savefig(figure_file)
-print(f'Figure saved as {figure_file}.')
+print(f'Permutation figure saved as {figure_file}.')
 
 exit(0)
