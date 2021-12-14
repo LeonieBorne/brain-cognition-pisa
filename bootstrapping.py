@@ -126,8 +126,11 @@ for mode in range(args.modes):
             elif l.startswith('E.') or l.startswith('E_'):
                 colors.append('lightblue')
                 labels.append(l[2:])
-            else:
+            elif l.startswith('A.') or l.startswith('A_'):
                 colors.append('plum')
+                labels.append(l[2:])
+            else:
+                colors.append('moccasin')
                 labels.append(l)
                 
         plt.rcParams.update({'font.size': 40})
@@ -142,10 +145,17 @@ for mode in range(args.modes):
         ax1.set_yticklabels(labels)
         from matplotlib.patches import Patch
         if len(set(colors)) > 1:
-            legend_elements = [Patch(facecolor='lightblue', label='Executive Functions'),
-                               Patch(facecolor='lightcoral', label='Memory'),
-                               Patch(facecolor='lightgreen', label='Language'),
-                               Patch(facecolor='plum', label='Mood/Social Cognition')]
+            legend_elements = [] 
+            if 'lightblue' in colors:
+                legend_elements.append(Patch(facecolor='lightblue', label='Executive Functions'))
+            if 'lightcoral' in colors:
+                legend_elements.append(Patch(facecolor='lightcoral', label='Memory'))
+            if 'lightgreen' in colors:
+                legend_elements.append(Patch(facecolor='lightgreen', label='Language'))
+            if 'plum' in colors:
+                legend_elements.append(Patch(facecolor='plum', label='Attention'))
+            if 'moccasin' in colors:
+                legend_elements.append(Patch(facecolor='moccasin', label='Other'))
             ax1.legend(handles=legend_elements, loc='best')
         ax1.set_ylim(-0.5, len(labels)-0.5)
         ax1.spines["top"].set_visible(False)
