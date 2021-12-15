@@ -105,8 +105,8 @@ print(f'Loadings correlation: {corr[0,1]}\n')
 # sulci snapshot
 rs = '\n'
 sc = np.array(boostx[0]).mean(axis=0)[:, args.mode] - np.array(boostx[1]).mean(axis=0)[:, args.mode]
-m = max([abs(max(sc)), abs(min(sc))])
-dict_sulcus = {s+'_left': x for s,x in zip(Xbrain.columns, sc) if s!=0}
+m = max(np.ceil([abs(max(sc))*1000, abs(min(sc))*1000]))/1000
+dict_sulcus = {s+'_left': x for s,x in zip(Xbrain.columns, sc)}
 for s in Xbrain.columns:
     dict_sulcus[s+'_left'] = dict_sulcus[s+'_left']
 dict_reg = {0 : [0.5, -0.5, -0.5, 0.5], 1 : [0.5, 0.5, 0.5, 0.5]}
@@ -134,7 +134,9 @@ for i in range(2):
         np.percentile(x_loadings, 97.5, axis=0)[:, args.mode],
         np.percentile(x_loadings, 2.5, axis=0)[:, args.mode])]
     probas = [p for m,p in sorted(zip(means, means_db))]
-    ax.barh(range(len(labels)), probas, 0.9, color='gold', align='center')
+    ax.barh(range(len(labels)), probas, 0.9, color='gold', align='center',
+             xerr=[[abs(m-v) for m, v in sorted(zip(means, np.percentile(x_loadings, 2.5, axis=0)[:, args.mode]), reverse=True)],
+                   [abs(m-v) for m, v in sorted(zip(means, np.percentile(x_loadings, 97.5, axis=0)[:, args.mode]), reverse=True)]])
     ax.set_ylim(-0.5, len(labels)-0.5)
     ax.set_yticks([])
     ax.set_xticks([0, 0.1])
