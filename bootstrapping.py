@@ -129,8 +129,11 @@ for mode in range(args.modes):
             elif l.startswith('A.') or l.startswith('A_'):
                 colors.append('plum')
                 labels.append(l[2:])
-            else:
+            elif l.startswith('V.') or l.startswith('V_'):
                 colors.append('moccasin')
+                labels.append(l[2:])
+            else:
+                colors.append('silver')
                 labels.append(l)
                 
         plt.rcParams.update({'font.size': 40})
@@ -155,7 +158,9 @@ for mode in range(args.modes):
             if 'plum' in colors:
                 legend_elements.append(Patch(facecolor='plum', label='Attention'))
             if 'moccasin' in colors:
-                legend_elements.append(Patch(facecolor='moccasin', label='Other'))
+                legend_elements.append(Patch(facecolor='moccasin', label='Visuospatial'))
+            if 'silver' in colors:
+                legend_elements.append(Patch(facecolor='silver', label='Other'))
             ax1.legend(handles=legend_elements, loc='best')
         ax1.set_ylim(-0.5, len(labels)-0.5)
         ax1.spines["top"].set_visible(False)
