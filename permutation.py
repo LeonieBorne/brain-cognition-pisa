@@ -12,6 +12,7 @@ from sklearn.cross_decomposition import PLSCanonical, CCA
 from sklearn.impute import SimpleImputer
 from sklearn.utils import shuffle
 from sklearn.metrics import r2_score
+from sklearn.linear_model import LinearRegression
 
 
 # command line arguments
@@ -72,18 +73,15 @@ x_scores, y_scores = pipeline.fit_transform(Xbrain, Ycogn)
 n_comp = pipeline.PLS.n_components
 ref_score = np.diag(score_func(
     x_scores, y_scores, rowvar=False)[:n_comp, n_comp:])
-ref_r2 = r2_score(x_scores, y_scores, multioutput='raw_values')
 
-scores, r2_scores = [], []
+scores = []
 for i in range(args.nperm):
     X = Xbrain
     Y = shuffle(Ycogn, random_state=i)
     x_scores, y_scores = pipeline.fit_transform(X, Y)
     scores.append(np.diag(score_func(
         x_scores, y_scores, rowvar=False)[:n_comp, n_comp:]))
-    r2_scores.append(r2_score(x_scores, y_scores, multioutput='raw_values'))
 scores = np.array(scores)
-r2_scores = np.array(r2_scores)
 
 # print result
 def print_pval(p):
@@ -113,10 +111,9 @@ for mode in range(n_comp):
     up_list.append(up)
     pvals.append(sum(scores[:, 0] >= sc)/args.nperm) 
     zcov.append(zsc)
-    zr2.append((ref_r2[mode]-np.mean(r2_scores[:, 0]))/np.std(r2_scores[:, 0]))
 rstr = f'RESULT: 1st mode, p{print_pval(pvals[0])}'
 if pvals[0] <= 0.05:
-    rstr += f', cov={ref_score[0]:.2f}, z-cov={zcov[0]:.2f}, r2={ref_r2[0]:.2f}, z-r2={zr2[0]:.2f};'
+    rstr += f', cov={ref_score[0]:.2f}, z-cov={zcov[0]:.2f};'
     rstr += f' 2nd mode, p{print_pval(pvals[1])}'
 print(rstr)
 
@@ -132,9 +129,11 @@ print(f'Permuted scores saved in {output_file}.')
 # figures
 sns.set_style("white")
 x_scores, y_scores = pipeline.fit_transform(Xbrain, Ycogn)
+reg = LinearRegression().fit(x_scores[:,0].reshape(-1,1), y_scores[:,0])
+r2 = r2_score(y_scores[:,0], reg.predict(x_scores[:,0].reshape(-1,1)))
 df = pd.DataFrame({'Brain projections' : x_scores[:,0], 'Cognitive projections' : y_scores[:,0]})
 fig = sns.regplot(x='Brain projections', y='Cognitive projections', data=df)
-fig.set_title(f'cov={ref_score[0]:.2f}, z-cov={zcov[0]:.2f}, r2={ref_r2[0]:.2f}')
+fig.set_title(f'cov={ref_score[0]:.2f}, z-cov={zcov[0]:.2f}, r2={r2:.2f}')
 figure_file = os.path.join(args.output_folder, 'latent_variables.png')
 figure = fig.get_figure()
 figure.savefig(figure_file)
