@@ -55,15 +55,16 @@ df_brain, df_cogn, df_info, Xbrain, Ycogn = functions.preprocessing.preprocessin
     train_hc_only=args.train_hc_only, mean=args.mean, verbose=True)
     
 # permutation tests
+modes = min([args.modes, df_brain.shape[1], df_cogn.shape[1]])
 if args.cca:
     print('Using CCA...')
-    pipeline = functions.pls.PLSPipeline(CCA(n_components=args.modes, max_iter=1000),
+    pipeline = functions.pls.PLSPipeline(CCA(n_components=modes, max_iter=1000),
                            Ximputer=SimpleImputer(strategy="mean"),
                            Yimputer=SimpleImputer(strategy="mean"))
     score_func = np.corrcoef
 else:
     print('Using Canonical PLS...')
-    pipeline = functions.pls.PLSPipeline(PLSCanonical(n_components=args.modes, max_iter=1000),
+    pipeline = functions.pls.PLSPipeline(PLSCanonical(n_components=modes, max_iter=1000),
                            Ximputer=SimpleImputer(strategy="mean"),
                            Yimputer=SimpleImputer(strategy="mean"))
     score_func = np.cov
@@ -112,7 +113,7 @@ for mode in range(n_comp):
     pvals.append(sum(scores[:, 0] >= sc)/args.nperm) 
     zcov.append(zsc)
 rstr = f'RESULT: 1st mode, p{print_pval(pvals[0])}'
-if pvals[0] <= 0.05:
+if pvals[0] <= 0.05 and modes>1:
     rstr += f', cov={ref_score[0]:.2f}, z-cov={zcov[0]:.2f};'
     rstr += f' 2nd mode, p{print_pval(pvals[1])}'
 print(rstr)
